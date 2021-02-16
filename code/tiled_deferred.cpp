@@ -1,4 +1,6 @@
 
+#include "fluid_sim.cpp"
+
 inline directional_shadow ShadowCreate(u32 Width, u32 Height, VkDescriptorSet TiledDeferredDescriptor)
 {
     directional_shadow Result = {};
@@ -421,11 +423,14 @@ inline void TiledDeferredCreate(renderer_create_info CreateInfo, VkDescriptorSet
             }
         }
     }
+
+    Result->FluidSim = FluidSimCreate(512, 512, Result->LightingPass.RenderPass, 0);
 }
 
-inline void TiledDeferredAddMeshes(tiled_deferred_state* State, render_scene* Scene, render_mesh* QuadMesh)
+inline void TiledDeferredAddMeshes(vk_commands Commands, tiled_deferred_state* State, render_scene* Scene, render_mesh* QuadMesh)
 {
     State->QuadMesh = QuadMesh;
+    FluidSimInit(Commands, &State->FluidSim);
 }
 
 inline void TiledDeferredRender(vk_commands Commands, tiled_deferred_state* State, render_scene* Scene)
@@ -475,6 +480,12 @@ inline void TiledDeferredRender(vk_commands Commands, tiled_deferred_state* Stat
         }
     }
     RenderTargetPassEnd(Commands);
+
+    // NOTE: Fluid Sim
+    {
+        fluid_sim* FluidSim = &State->FluidSim;
+        FluidSimSimulate(Commands, FluidSim);
+    }
     
     RenderTargetPassBegin(&State->GBufferPass, Commands, RenderTargetRenderPass_SetViewPort | RenderTargetRenderPass_SetScissor);
     // NOTE: GBuffer Pass
@@ -544,5 +555,9 @@ inline void TiledDeferredRender(vk_commands Commands, tiled_deferred_state* Stat
         vkCmdDrawIndexed(Commands.Buffer, State->QuadMesh->NumIndices, 1, 0, 0, 0);
     }
 
+    {
+        fluid_sim* FluidSim = &State->FluidSim;        
+        FullScreenPassRender(Commands, FluidSim->CopyToRtPipeline, 1, &FluidSim->RenderDescriptors[FluidSim->InputId]);
+    }    
     RenderTargetPassEnd(Commands);
 }

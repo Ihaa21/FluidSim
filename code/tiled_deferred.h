@@ -3,6 +3,8 @@
 #define TILE_SIZE_IN_PIXELS 8
 #define MAX_LIGHTS_PER_TILE 1024
 
+#include "fluid_sim.h"
+
 struct tiled_deferred_globals
 {
     // TODO: Move to camera?
@@ -30,6 +32,7 @@ struct tiled_deferred_state
     vk_linear_arena RenderTargetArena;
 
     directional_shadow Shadow;
+    fluid_sim FluidSim;
     
     // NOTE: GBuffer
     VkImage GBufferPositionImage;

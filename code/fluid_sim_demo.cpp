@@ -282,6 +282,8 @@ DEMO_INIT(Init)
     {
         render_scene* Scene = &DemoState->Scene;
         
+        FluidSimFrameBegin(&DemoState->TiledDeferredState.FluidSim, 0.0f);
+        
         // NOTE: White Texture
         vk_image WhiteTextureImage = {};
         {
@@ -338,7 +340,7 @@ DEMO_INIT(Init)
         DemoState->Quad = SceneMeshAdd(Scene, AssetsPushQuad());
         DemoState->Cube = SceneMeshAdd(Scene, AssetsPushCube());
         DemoState->Sphere = SceneMeshAdd(Scene, AssetsPushSphere(64, 64));
-        TiledDeferredAddMeshes(&DemoState->TiledDeferredState, Scene, Scene->RenderMeshes + DemoState->Quad);
+        TiledDeferredAddMeshes(Commands, &DemoState->TiledDeferredState, Scene, Scene->RenderMeshes + DemoState->Quad);
         
         // NOTE: Create UI
         UiStateCreate(RenderState->Device, &DemoState->Arena, &DemoState->TempArena, RenderState->LocalMemoryId,
@@ -455,6 +457,8 @@ DEMO_MAIN_LOOP(MainLoop)
                                    V4(0.0f, 0.0f, 1.0f, 1.0f), 2);
         }
 
+        FluidSimFrameBegin(&DemoState->TiledDeferredState.FluidSim, FrameTime);
+        
         // NOTE: Push materials
         if (Scene->NumMaterials > 0)
         {
