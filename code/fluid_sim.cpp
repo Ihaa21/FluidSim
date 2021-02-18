@@ -43,8 +43,8 @@ inline fluid_sim FluidSimCreate(u32 Width, u32 Height, VkRenderPass RenderPass, 
         
     {
         vk_descriptor_layout_builder Builder = VkDescriptorLayoutBegin(&Result.PressureDescLayout);
-        //VkDescriptorLayoutAdd(&Builder, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT);
-        VkDescriptorLayoutAdd(&Builder, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT);
+        VkDescriptorLayoutAdd(&Builder, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT);
+        //VkDescriptorLayoutAdd(&Builder, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT);
         VkDescriptorLayoutAdd(&Builder, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT);
         VkDescriptorLayoutEnd(RenderState->Device, &Builder);
     }
@@ -101,20 +101,20 @@ inline fluid_sim FluidSimCreate(u32 Width, u32 Height, VkRenderPass RenderPass, 
 
         {
             Result.PressureDescriptors[0] = VkDescriptorSetAllocate(RenderState->Device, RenderState->DescriptorPool, Result.PressureDescLayout);
-            //VkDescriptorImageWrite(&RenderState->DescriptorManager, Result.PressureDescriptors[0], 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-            //                       Result.PressureImages[0].View, VK_NULL_HANDLE, VK_IMAGE_LAYOUT_GENERAL);
-            VkDescriptorImageWrite(&RenderState->DescriptorManager, Result.PressureDescriptors[0], 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                                   Result.PressureImages[0].View, Result.PointSampler, VK_IMAGE_LAYOUT_GENERAL);
+            VkDescriptorImageWrite(&RenderState->DescriptorManager, Result.PressureDescriptors[0], 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+                                   Result.PressureImages[0].View, VK_NULL_HANDLE, VK_IMAGE_LAYOUT_GENERAL);
+            //VkDescriptorImageWrite(&RenderState->DescriptorManager, Result.PressureDescriptors[0], 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+            //                       Result.PressureImages[0].View, Result.PointSampler, VK_IMAGE_LAYOUT_GENERAL);
             VkDescriptorImageWrite(&RenderState->DescriptorManager, Result.PressureDescriptors[0], 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
                                    Result.PressureImages[1].View, VK_NULL_HANDLE, VK_IMAGE_LAYOUT_GENERAL);
         }
 
         {
             Result.PressureDescriptors[1] = VkDescriptorSetAllocate(RenderState->Device, RenderState->DescriptorPool, Result.PressureDescLayout);
-            //VkDescriptorImageWrite(&RenderState->DescriptorManager, Result.PressureDescriptors[1], 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-            //                       Result.PressureImages[1].View, VK_NULL_HANDLE, VK_IMAGE_LAYOUT_GENERAL);
-            VkDescriptorImageWrite(&RenderState->DescriptorManager, Result.PressureDescriptors[1], 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                                   Result.PressureImages[1].View, Result.PointSampler, VK_IMAGE_LAYOUT_GENERAL);
+            VkDescriptorImageWrite(&RenderState->DescriptorManager, Result.PressureDescriptors[1], 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+                                   Result.PressureImages[1].View, VK_NULL_HANDLE, VK_IMAGE_LAYOUT_GENERAL);
+            //VkDescriptorImageWrite(&RenderState->DescriptorManager, Result.PressureDescriptors[1], 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+            //                       Result.PressureImages[1].View, Result.PointSampler, VK_IMAGE_LAYOUT_GENERAL);
             VkDescriptorImageWrite(&RenderState->DescriptorManager, Result.PressureDescriptors[1], 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
                                    Result.PressureImages[0].View, VK_NULL_HANDLE, VK_IMAGE_LAYOUT_GENERAL);
         }
@@ -154,6 +154,18 @@ inline fluid_sim FluidSimCreate(u32 Width, u32 Height, VkRenderPass RenderPass, 
             
         Result.DivergencePipeline = VkPipelineComputeCreate(RenderState->Device, &RenderState->PipelineManager, &DemoState->TempArena,
                                                             "fluid_divergence.spv", "main", Layouts, ArrayCount(Layouts));
+    }
+
+    // TODO: REMOVE
+    {
+        VkDescriptorSetLayout Layouts[] = 
+            {
+                Result.DescLayout,
+                Result.PressureDescLayout,
+            };
+            
+        Result.TestDivergencePipeline = VkPipelineComputeCreate(RenderState->Device, &RenderState->PipelineManager, &DemoState->TempArena,
+                                                                "fluid_test_divergence.spv", "main", Layouts, ArrayCount(Layouts));
     }
 
     // NOTE: Pressure Iteration Pipeline
@@ -260,7 +272,7 @@ inline void FluidSimInit(vk_commands Commands, fluid_sim* FluidSim)
 inline void FluidSimFrameBegin(fluid_sim* FluidSim, f32 FrameTime)
 {
     // TODO: Make framework calculate correct frametime
-    FluidSim->UniformsCpu.FrameTime = 0.5f*FrameTime;
+    FluidSim->UniformsCpu.FrameTime = FrameTime;
     // TODO: Make this configurable
     FluidSim->UniformsCpu.Density = 1;
     Assert(FluidSim->Width == FluidSim->Height);
@@ -303,7 +315,7 @@ inline void FluidSimSimulate(vk_commands Commands, fluid_sim* FluidSim)
     VkBarrierManagerFlush(&RenderState->BarrierManager, Commands.Buffer);
 
     // NOTE: Pressure Iteration
-    for (u32 IterationId = 0; IterationId < 40; ++IterationId)
+    for (u32 IterationId = 0; IterationId < 10; ++IterationId)
     {
         VkDescriptorSet NewDescriptorSets[] =
         {

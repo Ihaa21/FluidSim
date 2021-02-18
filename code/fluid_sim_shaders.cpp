@@ -124,8 +124,8 @@ layout(set = 0, binding = 4, rg32f) uniform image2D OutputVelocity;
 
 layout(set = 0, binding = 5, r32f) uniform image2D DivergenceImage;
 
-//layout(set = 1, binding = 0, r32f) uniform image2D InputPressureImage;
-layout(set = 1, binding = 0) uniform sampler2D InputPressureImage;
+layout(set = 1, binding = 0, r32f) uniform image2D InputPressureImage;
+//layout(set = 1, binding = 0) uniform sampler2D InputPressureImage;
 layout(set = 1, binding = 1, r32f) uniform image2D OutputPressureImage;
 
 // TODO: Make global everywhere
@@ -181,7 +181,7 @@ void main()
         {
             // NOTE: Right vector field
             {
-                
+                //OutVelocity = vec2(1, 0);
             }
 
             // TODO: Test Case 1:
@@ -229,12 +229,20 @@ void main()
                 }
                 //*/
             }
+
+            // TODO: Test Case 4
+            {
+                /*
+                vec2 Uv = (gl_GlobalInvocationID.xy / TextureSize);
+                OutVelocity = vec2(sin(2*Pi32*Uv.y), cos(2*Pi32*Uv.x));
+                */
+            }
             
             // NOTE: Circular vector field
             {
                 ///*
-                vec2 Pos = 2.0f * (gl_GlobalInvocationID.xy / TextureSize);
-                OutVelocity = vec2(sin(2*Pi32*Pos.y), cos(2*Pi32*Pos.x));
+                vec2 Pos = (gl_GlobalInvocationID.xy / TextureSize);
+                OutVelocity = vec2(cos(2*Pi32*Pos.y), sin(2*Pi32*Pos.x));
                 //*/
             }
 
@@ -279,14 +287,13 @@ void main()
 
         // NOTE: Operate in UV space (centers are 0.5, 0.5)
         vec2 StartPosUv = (gl_GlobalInvocationID.xy + vec2(0.5f)) / TextureSize;
-        vec2 StartPos = StartPosUv - Velocity * FluidSimInputs.FrameTime;
+        vec2 NewPos = StartPosUv - Velocity * FluidSimInputs.FrameTime;
         
         // NOTE: Advect the velocity field
-        vec2 NewVelocity = texture(InputVelocity, StartPos).xy;
+        vec2 NewVelocity = texture(InputVelocity, NewPos).xy;
         imageStore(OutputVelocity, ivec2(gl_GlobalInvocationID.xy), vec4(NewVelocity, 0, 0));
 
         // NOTE: Clear pressure
-        //imageStore(InputPressureImage, ivec2(gl_GlobalInvocationID.xy), vec4(0, 0, 0, 0));
         imageStore(OutputPressureImage, ivec2(gl_GlobalInvocationID.xy), vec4(0, 0, 0, 0));
     }
 }
@@ -311,10 +318,28 @@ void main()
         float VelUp = imageLoad(OutputVelocity, TexelWrap(ivec2(gl_GlobalInvocationID.xy) + ivec2(0, 1), ivec2(TextureSize))).y;
         float VelDown = imageLoad(OutputVelocity, TexelWrap(ivec2(gl_GlobalInvocationID.xy) - ivec2(0, 1), ivec2(TextureSize))).y;
 
-        // TODO: We are assuming epsilon is the same in x and y
-        float Epsilon = 1.0f / TextureSize.x;
-        float Divergence = (-2 * FluidSimInputs.Epsilon * FluidSimInputs.Density / FluidSimInputs.FrameTime) * (VelRight - VelLeft + VelUp - VelDown);
+        float Divergence = ((-2 * FluidSimInputs.Epsilon * FluidSimInputs.Density) / FluidSimInputs.FrameTime) * (VelRight - VelLeft + VelUp - VelDown);
+        imageStore(DivergenceImage, ivec2(gl_GlobalInvocationID.xy), vec4(Divergence, 0, 0, 0));
+    }    
+}
 
+#endif
+
+// TODO: REMOVE
+#if TEST_DIVERGENCE
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+void main()
+{
+    vec2 TextureSize = vec2(FluidSimInputs.Dim, FluidSimInputs.Dim);
+    if (gl_GlobalInvocationID.x < TextureSize.x && gl_GlobalInvocationID.y < TextureSize.y)
+    {
+        float VelLeft = imageLoad(OutputVelocity, TexelWrap(ivec2(gl_GlobalInvocationID.xy) - ivec2(1, 0), ivec2(TextureSize))).x;
+        float VelRight = imageLoad(OutputVelocity, TexelWrap(ivec2(gl_GlobalInvocationID.xy) + ivec2(1, 0), ivec2(TextureSize))).x;
+        float VelUp = imageLoad(OutputVelocity, TexelWrap(ivec2(gl_GlobalInvocationID.xy) + ivec2(0, 1), ivec2(TextureSize))).y;
+        float VelDown = imageLoad(OutputVelocity, TexelWrap(ivec2(gl_GlobalInvocationID.xy) - ivec2(0, 1), ivec2(TextureSize))).y;
+
+        float Divergence = (VelRight - VelLeft + VelUp - VelDown) / (2*FluidSimInputs.Epsilon);
         imageStore(DivergenceImage, ivec2(gl_GlobalInvocationID.xy), vec4(Divergence, 0, 0, 0));
     }    
 }
@@ -333,20 +358,24 @@ void main()
     vec2 TextureSize = vec2(FluidSimInputs.Dim, FluidSimInputs.Dim);
     if (gl_GlobalInvocationID.x < TextureSize.x && gl_GlobalInvocationID.y < TextureSize.y)
     {
-        //float PressureLeft = imageLoad(InputPressureImage, TexelWrap(ivec2(gl_GlobalInvocationID.xy) - ivec2(2, 0), ivec2(TextureSize))).x;
-        //float PressureRight = imageLoad(InputPressureImage, TexelWrap(ivec2(gl_GlobalInvocationID.xy) + ivec2(2, 0), ivec2(TextureSize))).x;
-        //float PressureUp = imageLoad(InputPressureImage, TexelWrap(ivec2(gl_GlobalInvocationID.xy) + ivec2(0, 2), ivec2(TextureSize))).x;
-        //float PressureDown = imageLoad(InputPressureImage, TexelWrap(ivec2(gl_GlobalInvocationID.xy) - ivec2(0, 2), ivec2(TextureSize))).x;
+        ///*
+        float PressureLeft = imageLoad(InputPressureImage, TexelWrap(ivec2(gl_GlobalInvocationID.xy) - ivec2(2, 0), ivec2(TextureSize))).x;
+        float PressureRight = imageLoad(InputPressureImage, TexelWrap(ivec2(gl_GlobalInvocationID.xy) + ivec2(2, 0), ivec2(TextureSize))).x;
+        float PressureUp = imageLoad(InputPressureImage, TexelWrap(ivec2(gl_GlobalInvocationID.xy) + ivec2(0, 2), ivec2(TextureSize))).x;
+        float PressureDown = imageLoad(InputPressureImage, TexelWrap(ivec2(gl_GlobalInvocationID.xy) - ivec2(0, 2), ivec2(TextureSize))).x;
+        //*/
 
+        /*
         vec2 Uv = (gl_GlobalInvocationID.xy + vec2(0.5)) / TextureSize;
         float PressureLeft = textureOffset(InputPressureImage, Uv, -ivec2(2, 0)).x;
         float PressureRight = textureOffset(InputPressureImage, Uv, ivec2(2, 0)).x;
         float PressureUp = textureOffset(InputPressureImage, Uv, ivec2(0, 2)).x;
         float PressureDown = textureOffset(InputPressureImage, Uv, -ivec2(0, 2)).x;
+        //*/
         
         float Divergence = imageLoad(DivergenceImage, ivec2(gl_GlobalInvocationID.xy)).x;
-        float NewPressureCenter = (Divergence + PressureRight + PressureLeft + PressureUp + PressureDown) / 4.0f;
-
+        float NewPressureCenter = (Divergence + PressureRight + PressureLeft + PressureUp + PressureDown) * 0.25f;
+        
         imageStore(OutputPressureImage, ivec2(gl_GlobalInvocationID.xy), vec4(NewPressureCenter, 0, 0, 0));
     }
 }
@@ -368,23 +397,25 @@ void main()
         // NOTE: Apply pressure
         vec2 CorrectedVel;
         {
+            ///*
+            float PressureLeft = imageLoad(InputPressureImage, TexelWrap(ivec2(gl_GlobalInvocationID.xy) - ivec2(1, 0), ivec2(TextureSize))).x;
+            float PressureRight = imageLoad(InputPressureImage, TexelWrap(ivec2(gl_GlobalInvocationID.xy) + ivec2(1, 0), ivec2(TextureSize))).x;
+            float PressureUp = imageLoad(InputPressureImage, TexelWrap(ivec2(gl_GlobalInvocationID.xy) + ivec2(0, 1), ivec2(TextureSize))).x;
+            float PressureDown = imageLoad(InputPressureImage, TexelWrap(ivec2(gl_GlobalInvocationID.xy) - ivec2(0, 1), ivec2(TextureSize))).x;
+            //*/
+
+            /*
             vec2 Uv = (gl_GlobalInvocationID.xy + vec2(0.5)) / TextureSize;
             float PressureLeft = textureOffset(InputPressureImage, Uv, -ivec2(1, 0)).x;
             float PressureRight = textureOffset(InputPressureImage, Uv, ivec2(1, 0)).x;
             float PressureUp = textureOffset(InputPressureImage, Uv, ivec2(0, 1)).x;
             float PressureDown = textureOffset(InputPressureImage, Uv, -ivec2(0, 1)).x;
-
-            //float PressureLeft = imageLoad(InputPressureImage, TexelWrap(ivec2(gl_GlobalInvocationID.xy) - ivec2(1, 0), ivec2(TextureSize))).x;
-            //float PressureRight = imageLoad(InputPressureImage, TexelWrap(ivec2(gl_GlobalInvocationID.xy) + ivec2(1, 0), ivec2(TextureSize))).x;
-            //float PressureUp = imageLoad(InputPressureImage, TexelWrap(ivec2(gl_GlobalInvocationID.xy) + ivec2(0, 1), ivec2(TextureSize))).x;
-            //float PressureDown = imageLoad(InputPressureImage, TexelWrap(ivec2(gl_GlobalInvocationID.xy) - ivec2(0, 1), ivec2(TextureSize))).x;
+            //*/
 
             float Multiplier = (FluidSimInputs.FrameTime / (2*FluidSimInputs.Density*FluidSimInputs.Epsilon));
             vec2 AdvectedVel = imageLoad(OutputVelocity, ivec2(gl_GlobalInvocationID.xy)).xy;
             CorrectedVel.x = AdvectedVel.x - Multiplier * (PressureRight - PressureLeft);
             CorrectedVel.y = AdvectedVel.y - Multiplier * (PressureUp - PressureDown);
-            //CorrectedVel.x -= (FluidSimInputs.FrameTime / (FluidSimInputs.Density)) * (PressureRight - PressureLeft);
-            //CorrectedVel.y -= (FluidSimInputs.FrameTime / (FluidSimInputs.Density)) * (PressureUp - PressureDown);
             
             imageStore(OutputVelocity, ivec2(gl_GlobalInvocationID.xy), vec4(CorrectedVel, 0, 0));
         }

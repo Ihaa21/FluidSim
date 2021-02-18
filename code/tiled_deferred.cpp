@@ -430,7 +430,6 @@ inline void TiledDeferredCreate(renderer_create_info CreateInfo, VkDescriptorSet
 inline void TiledDeferredAddMeshes(vk_commands Commands, tiled_deferred_state* State, render_scene* Scene, render_mesh* QuadMesh)
 {
     State->QuadMesh = QuadMesh;
-    FluidSimInit(Commands, &State->FluidSim);
 }
 
 inline void TiledDeferredRender(vk_commands Commands, tiled_deferred_state* State, render_scene* Scene)

@@ -132,6 +132,7 @@ DEMO_INIT(Init)
             
             render_init_params InitParams = {};
             InitParams.ValidationEnabled = true;
+            InitParams.PresentMode = VK_PRESENT_MODE_FIFO_KHR;
             InitParams.WindowWidth = WindowWidth;
             InitParams.WindowHeight = WindowHeight;
             InitParams.StagingBufferSize = MegaBytes(400);
@@ -356,6 +357,8 @@ DEMO_INIT(Init)
         VkDescriptorManagerFlush(RenderState->Device, &RenderState->DescriptorManager);
         VkTransferManagerFlush(&RenderState->TransferManager, RenderState->Device, RenderState->Commands.Buffer, &RenderState->BarrierManager);
     }
+
+    FluidSimInit(Commands, &DemoState->TiledDeferredState.FluidSim);
     
     VkCommandsSubmit(RenderState->GraphicsQueue, Commands);
 }

@@ -34,6 +34,7 @@ struct fluid_sim
     vk_pipeline* InitPipeline;
     vk_pipeline* AdvectionVelPipeline;
     vk_pipeline* DivergencePipeline;
+    vk_pipeline* TestDivergencePipeline; // TODO: REMOVE
     vk_pipeline* PressureIterationPipeline;
     vk_pipeline* PressureApplyPipeline;
     vk_pipeline* CopyToRtPipeline;

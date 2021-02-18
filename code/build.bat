@@ -32,6 +32,7 @@ REM FluidSim
 call glslangValidator -DINIT=1 -S comp -e main -g -V -o %DataDir%\fluid_init.spv %CodeDir%\fluid_sim_shaders.cpp
 call glslangValidator -DADVECTION=1 -S comp -e main -g -V -o %DataDir%\fluid_advection.spv %CodeDir%\fluid_sim_shaders.cpp
 call glslangValidator -DDIVERGENCE=1 -S comp -e main -g -V -o %DataDir%\fluid_divergence.spv %CodeDir%\fluid_sim_shaders.cpp
+call glslangValidator -DTEST_DIVERGENCE=1 -S comp -e main -g -V -o %DataDir%\fluid_test_divergence.spv %CodeDir%\fluid_sim_shaders.cpp
 call glslangValidator -DPRESSURE_ITERATION=1 -S comp -e main -g -V -o %DataDir%\fluid_pressure_iteration.spv %CodeDir%\fluid_sim_shaders.cpp
 call glslangValidator -DPRESSURE_APPLY=1 -S comp -e main -g -V -o %DataDir%\fluid_pressure_apply.spv %CodeDir%\fluid_sim_shaders.cpp
 
