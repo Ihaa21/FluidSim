@@ -424,7 +424,9 @@ inline void TiledDeferredCreate(renderer_create_info CreateInfo, VkDescriptorSet
         }
     }
 
-    Result->FluidSim = FluidSimCreate(512, 512, Result->LightingPass.RenderPass, 0);
+    //Result->FluidSim = FluidSimCreate(512, 512, Result->LightingPass.RenderPass, 0);
+    //Result->FluidSim = FluidSimCreate(400, 400, Result->LightingPass.RenderPass, 0);
+    Result->FluidSim = FluidSimCreate(800, 800, Result->LightingPass.RenderPass, 0);
 }
 
 inline void TiledDeferredAddMeshes(vk_commands Commands, tiled_deferred_state* State, render_scene* Scene, render_mesh* QuadMesh)

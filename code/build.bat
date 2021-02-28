@@ -29,10 +29,9 @@ call glslangValidator -DTILED_DEFERRED_LIGHTING_VERT=1 -S vert -e main -g -V -o 
 call glslangValidator -DTILED_DEFERRED_LIGHTING_FRAG=1 -S frag -e main -g -V -o %DataDir%\tiled_deferred_lighting_frag.spv %CodeDir%\tiled_deferred_shaders.cpp
 
 REM FluidSim
-call glslangValidator -DINIT=1 -S comp -e main -g -V -o %DataDir%\fluid_init.spv %CodeDir%\fluid_sim_shaders.cpp
+call glslangValidator -DDIFFUSION_INIT=1 -S comp -e main -g -V -o %DataDir%\fluid_diffusion_init.spv %CodeDir%\fluid_sim_shaders.cpp
 call glslangValidator -DADVECTION=1 -S comp -e main -g -V -o %DataDir%\fluid_advection.spv %CodeDir%\fluid_sim_shaders.cpp
 call glslangValidator -DDIVERGENCE=1 -S comp -e main -g -V -o %DataDir%\fluid_divergence.spv %CodeDir%\fluid_sim_shaders.cpp
-call glslangValidator -DTEST_DIVERGENCE=1 -S comp -e main -g -V -o %DataDir%\fluid_test_divergence.spv %CodeDir%\fluid_sim_shaders.cpp
 call glslangValidator -DPRESSURE_ITERATION=1 -S comp -e main -g -V -o %DataDir%\fluid_pressure_iteration.spv %CodeDir%\fluid_sim_shaders.cpp
 call glslangValidator -DPRESSURE_APPLY=1 -S comp -e main -g -V -o %DataDir%\fluid_pressure_apply.spv %CodeDir%\fluid_sim_shaders.cpp
 

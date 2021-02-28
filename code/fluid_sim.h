@@ -8,6 +8,23 @@ struct fluid_sim_inputs
     u32 Dim;
 };
 
+struct diffusion_sim
+{
+    
+};
+
+struct smoke_sim
+{
+};
+
+struct fire_sim
+{
+};
+
+struct water_sim
+{
+};
+
 struct fluid_sim
 {
     vk_linear_arena Arena;
@@ -25,17 +42,30 @@ struct fluid_sim
     vk_image DivergenceImage;
     vk_image PressureImages[2];
     
-    VkDescriptorSetLayout DescLayout;
-    VkDescriptorSet Descriptors[2];
+    VkDescriptorSetLayout GlobalDescLayout;
+    VkDescriptorSet GlobalDescriptor;
+
+    VkDescriptorSet RenderDescriptors[2];
+    
+    VkDescriptorSetLayout InitDescLayout;
+    VkDescriptorSet InitDescriptor;
+    vk_pipeline* InitPipeline;
+    
+    VkDescriptorSetLayout AdvectionDescLayout;
+    VkDescriptorSet AdvectionDescriptors[2];
+    vk_pipeline* AdvectionVelPipeline;
+    
+    VkDescriptorSetLayout DivergenceDescLayout;
+    VkDescriptorSet DivergenceDescriptors[2];
+    vk_pipeline* DivergencePipeline;
+
     VkDescriptorSetLayout PressureDescLayout;
     VkDescriptorSet PressureDescriptors[2];
-    VkDescriptorSet RenderDescriptors[2];
-
-    vk_pipeline* InitPipeline;
-    vk_pipeline* AdvectionVelPipeline;
-    vk_pipeline* DivergencePipeline;
-    vk_pipeline* TestDivergencePipeline; // TODO: REMOVE
     vk_pipeline* PressureIterationPipeline;
+
+    VkDescriptorSetLayout PressureApplyDescLayout;
+    VkDescriptorSet PressureApplyDescriptors[2];
     vk_pipeline* PressureApplyPipeline;
+    
     vk_pipeline* CopyToRtPipeline;
 };

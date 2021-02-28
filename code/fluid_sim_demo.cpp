@@ -132,7 +132,7 @@ DEMO_INIT(Init)
             
             render_init_params InitParams = {};
             InitParams.ValidationEnabled = true;
-            InitParams.PresentMode = VK_PRESENT_MODE_FIFO_KHR;
+            //InitParams.PresentMode = VK_PRESENT_MODE_FIFO_KHR;
             InitParams.WindowWidth = WindowWidth;
             InitParams.WindowHeight = WindowHeight;
             InitParams.StagingBufferSize = MegaBytes(400);
