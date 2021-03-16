@@ -6,23 +6,71 @@ struct fluid_sim_inputs
     f32 Density;
     f32 Epsilon;
     u32 Dim;
+
+    // NOTE: Smoke glboals
+    f32 Gravity;
+    f32 RoomTemperature;
+    f32 MolarMass;
+    f32 R;
+
+    // NOTE: Splat data
+    v2 SplatCenter;
+    f32 SplatRadius;
+    u32 Pad0;
 };
 
 struct diffusion_sim
 {
-    
+    vk_image ColorImages[2];
+
+    VkDescriptorSet InitDescriptor;
+    VkDescriptorSet AdvectionDescriptors[2];
+    VkDescriptorSet PressureApplyDescriptors[2];
+    VkDescriptorSet RenderDescriptors[2];
 };
 
 struct smoke_sim
 {
+    vk_image ColorImages[2];
+    vk_image TemperatureImages[2];
+
+    VkDescriptorSet SplatDescriptors[2];
+    VkDescriptorSet AdvectionDescriptors[2];
+    VkDescriptorSet PressureApplyDescriptors[2];
+    VkDescriptorSet RenderDescriptors[2];
 };
 
 struct fire_sim
 {
+    vk_image ColorImages[2];
+    vk_image TemperatureImages[2];
+    vk_image ReactionImages[2];
+
+    VkDescriptorSet SplatDescriptors[2];
+    VkDescriptorSet AdvectionDescriptors[2];
+    VkDescriptorSet PressureApplyDescriptors[2];
+    VkDescriptorSet RenderDescriptors[2];
 };
 
 struct water_sim
 {
+    vk_image ColorImages[2];
+    vk_image DistanceImages[2];
+
+    VkDescriptorSet InitDescriptors[2];
+    VkDescriptorSet AdvectionDescriptors[2];
+    VkDescriptorSet PressureApplyDescriptors[2];
+    VkDescriptorSet RenderDescriptors[2];
+};
+
+enum fluid_sim_type
+{
+    FluidSimType_None,
+
+    FluidSimType_Diffusion,
+    FluidSimType_Smoke,
+    FluidSimType_Fire,
+    FluidSimType_Water,
 };
 
 struct fluid_sim
@@ -32,40 +80,78 @@ struct fluid_sim
     u32 Width;
     u32 Height;
     u32 InputId;
+    u32 PressureInputId;
 
-    fluid_sim_inputs UniformsCpu;
-    VkBuffer UniformBuffer;
-    VkSampler PointSampler;
-    VkSampler LinearSampler;
-    vk_image ColorImages[2];
     vk_image VelocityImages[2];
     vk_image DivergenceImage;
     vk_image PressureImages[2];
     
+    VkDescriptorSet DivergenceDescriptors[2];
+    VkDescriptorSet PressureDescriptors[2];
+
+    fluid_sim_type Type;
+    union
+    {
+        diffusion_sim DiffusionSim;
+        smoke_sim SmokeSim;
+        fire_sim FireSim;
+        water_sim WaterSim;
+    };
+    
+    fluid_sim_inputs UniformsCpu;
+    VkBuffer UniformBuffer;
+    VkSampler PointSampler;
+    VkSampler LinearSampler;
+    
     VkDescriptorSetLayout GlobalDescLayout;
     VkDescriptorSet GlobalDescriptor;
 
-    VkDescriptorSet RenderDescriptors[2];
-    
-    VkDescriptorSetLayout InitDescLayout;
-    VkDescriptorSet InitDescriptor;
-    vk_pipeline* InitPipeline;
-    
-    VkDescriptorSetLayout AdvectionDescLayout;
-    VkDescriptorSet AdvectionDescriptors[2];
-    vk_pipeline* AdvectionVelPipeline;
-    
+    // NOTE: Shared PSOs
     VkDescriptorSetLayout DivergenceDescLayout;
-    VkDescriptorSet DivergenceDescriptors[2];
     vk_pipeline* DivergencePipeline;
 
     VkDescriptorSetLayout PressureDescLayout;
-    VkDescriptorSet PressureDescriptors[2];
     vk_pipeline* PressureIterationPipeline;
 
-    VkDescriptorSetLayout PressureApplyDescLayout;
-    VkDescriptorSet PressureApplyDescriptors[2];
-    vk_pipeline* PressureApplyPipeline;
+    // NOTE: Diffusion specific data
+    VkDescriptorSetLayout DiffusionInitDescLayout;
+    vk_pipeline* DiffusionInitPipeline;
+
+    VkDescriptorSetLayout DiffusionAdvectionDescLayout;
+    vk_pipeline* DiffusionAdvectionPipeline;
+
+    VkDescriptorSetLayout DiffusionPressureApplyDescLayout;
+    vk_pipeline* DiffusionPressureApplyPipeline;
+
+    // NOTE: Smoke specific data
+    VkDescriptorSetLayout SmokeSplatDescLayout;
+    vk_pipeline* SmokeSplatPipeline;
+
+    VkDescriptorSetLayout SmokeAdvectionDescLayout;
+    vk_pipeline* SmokeAdvectionPipeline;
+
+    VkDescriptorSetLayout SmokePressureApplyDescLayout;
+    vk_pipeline* SmokePressureApplyPipeline;
+
+    // NOTE: Fire specific data
+    VkDescriptorSetLayout FireSplatDescLayout;
+    vk_pipeline* FireSplatPipeline;
+
+    VkDescriptorSetLayout FireAdvectionDescLayout;
+    vk_pipeline* FireAdvectionPipeline;
+
+    VkDescriptorSetLayout FirePressureApplyDescLayout;
+    vk_pipeline* FirePressureApplyPipeline;
+
+    // NOTE: Water specific data
+    VkDescriptorSetLayout WaterSplatDescLayout;
+    vk_pipeline* WaterSplatPipeline;
+
+    VkDescriptorSetLayout WaterAdvectionDescLayout;
+    vk_pipeline* WaterAdvectionPipeline;
+
+    VkDescriptorSetLayout WaterPressureApplyDescLayout;
+    vk_pipeline* WaterPressureApplyPipeline;
     
     vk_pipeline* CopyToRtPipeline;
 };
