@@ -426,8 +426,7 @@ inline void TiledDeferredCreate(renderer_create_info CreateInfo, VkDescriptorSet
 
     //Result->FluidSim = FluidSimCreate(512, 512, Result->LightingPass.RenderPass, 0);
     //Result->FluidSim = FluidSimCreate(400, 400, Result->LightingPass.RenderPass, 0);
-    //Result->FluidSim = FluidSimCreate(FluidSimType_Diffusion, 800, 800, Result->LightingPass.RenderPass, 0);
-    Result->FluidSim = FluidSimCreate(FluidSimType_Smoke, 800, 800, Result->LightingPass.RenderPass, 0);
+    Result->FluidSim = FluidSimCreate(FluidSimType_Fire, 800, 800, Result->LightingPass.RenderPass, 0);
 }
 
 inline void TiledDeferredAddMeshes(vk_commands Commands, tiled_deferred_state* State, render_scene* Scene, render_mesh* QuadMesh)
@@ -572,6 +571,12 @@ inline void TiledDeferredRender(vk_commands Commands, tiled_deferred_state* Stat
             {
                 smoke_sim* SmokeSim = &FluidSim->SmokeSim;
                 FullScreenPassRender(Commands, FluidSim->CopyToRtPipeline, 1, &SmokeSim->RenderDescriptors[FluidSim->InputId]);
+            } break;
+
+            case FluidSimType_Fire:
+            {
+                fire_sim* FireSim = &FluidSim->FireSim;
+                FullScreenPassRender(Commands, FluidSim->CopyToRtPipeline, 1, &FireSim->RenderDescriptors[FluidSim->InputId]);
             } break;
         }
     }    

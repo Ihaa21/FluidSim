@@ -35,9 +35,15 @@ void main()
         {
             vec2 Uv = GetUv();
             Uv = 2*Uv - vec2(1);
+#if 0
             vec4 OutColor = vec4(step(1.0, mod(floor((Uv.x + 1.0) / 0.2) + floor((Uv.y + 1.0) / 0.2), 2.0)),
                                  step(1.0, mod(floor((Uv.x + 1.0) / 0.3) + floor((Uv.y + 1.0) / 0.3), 2.0)),
                                  step(1.0, mod(floor((Uv.x + 1.0) / 0.4) + floor((Uv.y + 1.0) / 0.4), 2.0)),
+                                 1);
+#endif
+            vec4 OutColor = vec4(step(1.0, mod(floor((Uv.x + 1.0) / 0.2) + floor((Uv.y + 1.0) / 0.2), 2.0)),
+                                 step(1.0, mod(floor((Uv.x + 1.0) / 0.2) + floor((Uv.y + 1.0) / 0.2), 2.0)),
+                                 step(1.0, mod(floor((Uv.x + 1.0) / 0.2) + floor((Uv.y + 1.0) / 0.2), 2.0)),
                                  1);
             
             imageStore(OutColorImage, ivec2(gl_GlobalInvocationID.xy), OutColor);
@@ -93,10 +99,10 @@ void main()
         // NOTE: Apply pressure
         vec2 CorrectedVel;
         {
-            float PressureLeft = textureOffset(InPressureImage, Uv, -ivec2(1, 0)).x;
-            float PressureRight = textureOffset(InPressureImage, Uv, ivec2(1, 0)).x;
-            float PressureUp = textureOffset(InPressureImage, Uv, ivec2(0, 1)).x;
-            float PressureDown = textureOffset(InPressureImage, Uv, -ivec2(0, 1)).x;
+            float PressureLeft = LoadPressureMirror(ivec2(gl_GlobalInvocationID.xy) - ivec2(1, 0), ivec2(TextureSize));
+            float PressureRight = LoadPressureMirror(ivec2(gl_GlobalInvocationID.xy) + ivec2(1, 0), ivec2(TextureSize));
+            float PressureUp = LoadPressureMirror(ivec2(gl_GlobalInvocationID.xy) + ivec2(0, 1), ivec2(TextureSize));
+            float PressureDown = LoadPressureMirror(ivec2(gl_GlobalInvocationID.xy) - ivec2(0, 1), ivec2(TextureSize));
 
             float Multiplier = (FluidSimInputs.FrameTime / (2*FluidSimInputs.Density*FluidSimInputs.Epsilon));
             vec2 AdvectedVel = imageLoad(VelocityImage, ivec2(gl_GlobalInvocationID.xy)).xy;

@@ -42,9 +42,8 @@ struct smoke_sim
 
 struct fire_sim
 {
-    vk_image ColorImages[2];
     vk_image TemperatureImages[2];
-    vk_image ReactionImages[2];
+    vk_image TimerImages[2];
 
     VkDescriptorSet SplatDescriptors[2];
     VkDescriptorSet AdvectionDescriptors[2];
@@ -100,8 +99,11 @@ struct fluid_sim
     
     fluid_sim_inputs UniformsCpu;
     VkBuffer UniformBuffer;
-    VkSampler PointSampler;
-    VkSampler LinearSampler;
+    VkSampler MirrorPointSampler;
+    VkSampler MirrorLinearSampler;
+    
+    VkSampler ClampPointSampler;
+    VkSampler ClampLinearSampler;
     
     VkDescriptorSetLayout GlobalDescLayout;
     VkDescriptorSet GlobalDescriptor;
@@ -111,7 +113,8 @@ struct fluid_sim
     vk_pipeline* DivergencePipeline;
 
     VkDescriptorSetLayout PressureDescLayout;
-    vk_pipeline* PressureIterationPipeline;
+    vk_pipeline* PressureMirrorIterationPipeline;
+    vk_pipeline* PressureClampIterationPipeline;
 
     // NOTE: Diffusion specific data
     VkDescriptorSetLayout DiffusionInitDescLayout;

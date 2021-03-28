@@ -7,14 +7,14 @@
 #include "fluid_sim_shader_globals.cpp"
 
 //
-// NOTE: Smoke Splat
+// NOTE: Fire Splat
 //
 
-#if SMOKE_SPLAT
+#if FIRE_SPLAT
 
 layout(set = 1, binding = 0, r32f) uniform image2D TemperatureImage;
-layout(set = 1, binding = 1, r32f) uniform image2D ColorImage;
-layout(set = 1, binding = 2, r32f) uniform image2D VelocityImage;
+layout(set = 1, binding = 1, r32f) uniform image2D VelocityImage;
+layout(set = 1, binding = 2, r32f) uniform image2D TimerImage;
 
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 void main()
@@ -24,18 +24,27 @@ void main()
     {
         vec2 Uv = GetUv();
         float SplatValue = 0.0f;
-        if (Uv.x >= (FluidSimInputs.SplatCenter.x - FluidSimInputs.SplatRadius) &&
-            Uv.x <= (FluidSimInputs.SplatCenter.x + FluidSimInputs.SplatRadius) && 
-            Uv.y >= (FluidSimInputs.SplatCenter.y - FluidSimInputs.SplatRadius) &&
-            Uv.y <= (FluidSimInputs.SplatCenter.y + FluidSimInputs.SplatRadius))
+
+#if 0
+        // NOTE: Box Radius
+        bool InRadius = (Uv.x >= (FluidSimInputs.SplatCenter.x - FluidSimInputs.SplatRadius) &&
+                         Uv.x <= (FluidSimInputs.SplatCenter.x + FluidSimInputs.SplatRadius) && 
+                         Uv.y >= (FluidSimInputs.SplatCenter.y - FluidSimInputs.SplatRadius) &&
+                         Uv.y <= (FluidSimInputs.SplatCenter.y + FluidSimInputs.SplatRadius));
+#else
+        // NOTE: Circle Radius
+        bool InRadius = length(Uv - FluidSimInputs.SplatCenter) <=  FluidSimInputs.SplatRadius;
+#endif
+        
+        if (InRadius)
         {
 #if 0
             // NOTE: Exponential splat
             float Dx = FluidSimInputs.SplatCenter.x - Uv.x;
             float Dy = FluidSimInputs.SplatCenter.y - Uv.y;
-            SplatValue = exp(-(Dx * Dx + Dy * Dy) / FluidSimInputs.SplatRadius);
+            SplatValue = 0.05f*exp(-(Dx * Dx + Dy * Dy) / FluidSimInputs.SplatRadius);
 #else
-            SplatValue = 1.0f;
+            SplatValue = 0.01f;
 #endif
 
             // NOTE: Update temperature
@@ -43,14 +52,13 @@ void main()
             float NewTemperature = CurrTemperature + 0.01f*SplatValue;
             imageStore(TemperatureImage, ivec2(gl_GlobalInvocationID.xy), vec4(NewTemperature, 0, 0, 0));
 
-            // NOTE: Update color
-            float CurrColor = imageLoad(ColorImage, ivec2(gl_GlobalInvocationID.xy)).x;
-            float NewColor = CurrColor + SplatValue;
-            imageStore(ColorImage, ivec2(gl_GlobalInvocationID.xy), vec4(NewColor, 0, 0, 0));
-
             // NOTE: Update velocity
-            vec2 NewVelocity = 0.01f*vec2(0, SplatValue);
+            vec2 NewVelocity = 10.0f*vec2(0, SplatValue);
             imageStore(VelocityImage, ivec2(gl_GlobalInvocationID.xy), vec4(NewVelocity, 0, 0));
+
+            // NOTE: Update timer coordinate
+            float NewTimer = 0.5f;
+            imageStore(TimerImage, ivec2(gl_GlobalInvocationID.xy), vec4(NewTimer, 0, 0, 0));
         }
     }
 }
@@ -58,10 +66,10 @@ void main()
 #endif
 
 //
-// NOTE: Smoke Advection
+// NOTE: Fire Advection
 //
 
-#if SMOKE_ADVECTION
+#if FIRE_ADVECTION
 
 layout(set = 1, binding = 0) uniform sampler2D InVelocityImage;
 layout(set = 1, binding = 1, rg32f) uniform image2D OutVelocityImage;
@@ -78,9 +86,12 @@ void main()
 
         // NOTE: Get buoyancy force
         float Multiplier = FluidSimInputs.MolarMass * FluidSimInputs.Gravity / FluidSimInputs.R;
-        float Temperature = texture(InTemperatureImage, GetUv()).x;
-        // TODO: Make pressure a constant passed in
-        float Buoyancy = 0.01f * Multiplier * ((1.0f / FluidSimInputs.RoomTemperature) - (1.0f / Temperature));
+        // TODO: Should this be Sample Pos with bilinear filtering?
+        //float Temperature = texture(InTemperatureImage, GetUv()).x;
+        float Temperature = texture(InTemperatureImage, SamplePos).x;
+        Temperature = max(FluidSimInputs.RoomTemperature, Temperature);
+        float PressureConstant = 1.0f;
+        float Buoyancy = 1.0f * Multiplier * ((1.0f / FluidSimInputs.RoomTemperature) - (1.0f / Temperature));
         
         // NOTE: Advect the velocity field
         vec2 NewVelocity = texture(InVelocityImage, SamplePos).xy + Buoyancy * vec2(0, 1);
@@ -91,18 +102,18 @@ void main()
 #endif
 
 //
-// NOTE: Smoke Pressure Application
+// NOTE: Fire Pressure Application
 //
 
-#if SMOKE_PRESSURE_APPLY
+#if FIRE_PRESSURE_APPLY
 
 layout(set = 1, binding = 0, rg32f) uniform image2D VelocityImage;
 
-layout(set = 1, binding = 1) uniform sampler2D InColorImage;
-layout(set = 1, binding = 2, r32f) uniform image2D OutColorImage;
+layout(set = 1, binding = 1) uniform sampler2D InTemperatureImage;
+layout(set = 1, binding = 2, r32f) uniform image2D OutTemperatureImage;
 
-layout(set = 1, binding = 3) uniform sampler2D InTemperatureImage;
-layout(set = 1, binding = 4, r32f) uniform image2D OutTemperatureImage;
+layout(set = 1, binding = 3) uniform sampler2D InTimerImage;
+layout(set = 1, binding = 4, r32f) uniform image2D OutTimerImage;
 
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 void main()
@@ -130,18 +141,19 @@ void main()
 
         vec2 SamplePos = AdvectionFindPos(CorrectedVel, gl_GlobalInvocationID.xy, TextureSize);
 
+        // NOTE: Advect the timer coordinate
+        {
+            vec4 NewTimer = texture(InTimerImage, SamplePos);
+            NewTimer.x = max(0.0f, NewTimer.x - FluidSimInputs.FrameTime);
+            imageStore(OutTimerImage, ivec2(gl_GlobalInvocationID.xy), NewTimer);
+        }
+
         // NOTE: Advect the temperature
         {
             vec4 NewTemperature = texture(InTemperatureImage, SamplePos);
             // TODO: FIX THIS HACK
             NewTemperature.x = max(NewTemperature.x, FluidSimInputs.RoomTemperature);
             imageStore(OutTemperatureImage, ivec2(gl_GlobalInvocationID.xy), NewTemperature);
-        }
-        
-        // NOTE: Advect the color
-        {
-            vec4 NewColor = texture(InColorImage, SamplePos);
-            imageStore(OutColorImage, ivec2(gl_GlobalInvocationID.xy), NewColor);
         }
     }
 }

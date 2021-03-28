@@ -42,7 +42,7 @@ layout(set = 0, binding = 1, r32f) uniform image2D DivergenceImage;
 // NOTE: Pressure descriptor
 //
 
-layout(set = 2, binding = 0) uniform sampler2D InPressureImage;
+layout(set = 2, binding = 0, r32f) uniform image2D InPressureImage;
 layout(set = 2, binding = 1, r32f) uniform image2D OutPressureImage;
 
 // TODO: Make global everywhere
@@ -73,5 +73,62 @@ vec2 AdvectionFindPos(sampler2D VelocityImage, vec2 GlobalThreadId, vec2 Texture
     vec2 Velocity = texelFetch(VelocityImage, ivec2(GlobalThreadId.xy), 0).xy;
     vec2 Result = AdvectionFindPos(Velocity, GlobalThreadId, TextureSize);
 
+    return Result;
+}
+
+float LoadPressureMirror(ivec2 SamplePos, ivec2 TextureSize)
+{
+    float Result = 0.0f;
+
+#if 0
+    ivec2 MirrorSamplePos = SamplePos;
+    if (MirrorSamplePos.x < 0)
+    {
+        MirrorSamplePos.x += int(TextureSize.x);
+    }
+    else if (MirrorSamplePos.x > TextureSize.x)
+    {
+        MirrorSamplePos.x -= int(TextureSize.x);
+    }
+    
+    if (MirrorSamplePos.y < 0)
+    {
+        MirrorSamplePos.y += int(TextureSize.y);
+    }
+    else if (MirrorSamplePos.y > TextureSize.y)
+    {
+        MirrorSamplePos.y -= int(TextureSize.y);
+    }
+#endif
+    
+    vec2 Uv = fract((vec2(SamplePos) + vec2(0.5f)) / vec2(TextureSize));
+    ivec2 MirrorSamplePos = ivec2(Uv * TextureSize);
+    
+    Result = imageLoad(InPressureImage, MirrorSamplePos).x;
+
+    return Result;
+}
+
+float LoadPressureClosedBorder(ivec2 SamplePos, ivec2 SampleOffset, vec2 TextureSize)
+{
+    float Result = 0.0f;
+
+    // NOTE: If we are out of bounds, use the pressure in the center for our result
+    if ((SamplePos.x + SampleOffset.x) < 0 || (SamplePos.x + SampleOffset.x) >= TextureSize.x ||
+        (SamplePos.y + SampleOffset.y) < 0 || (SamplePos.y + SampleOffset.y) >= TextureSize.y)
+    {
+        Result = imageLoad(InPressureImage, SamplePos).x;
+    }
+    else
+    {
+        Result = imageLoad(InPressureImage, SamplePos + SampleOffset).x;
+    }
+    
+    return Result;
+}
+
+float LoadPressureClamp(ivec2 SamplePos, ivec2 SampleOffset, vec2 TextureSize)
+{
+    float Result = imageLoad(InPressureImage, SamplePos + SampleOffset).x;
     return Result;
 }
