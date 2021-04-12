@@ -45,6 +45,7 @@ call glslangValidator -DSMOKE_PRESSURE_APPLY=1 -S comp -e main -g -V -o %DataDir
 
 REM Fire
 call glslangValidator -DFIRE_SPLAT=1 -S comp -e main -g -V -o %DataDir%\fluid_fire_splat.spv %CodeDir%\fluid_sim_fire_shaders.cpp
+call glslangValidator -DFIRE_BURN_FUEL=1 -S comp -e main -g -V -o %DataDir%\fluid_fire_burn_fuel.spv %CodeDir%\fluid_sim_fire_shaders.cpp
 call glslangValidator -DFIRE_ADVECTION=1 -S comp -e main -g -V -o %DataDir%\fluid_fire_advection.spv %CodeDir%\fluid_sim_fire_shaders.cpp
 call glslangValidator -DFIRE_PRESSURE_APPLY=1 -S comp -e main -g -V -o %DataDir%\fluid_fire_pressure_apply.spv %CodeDir%\fluid_sim_fire_shaders.cpp
 

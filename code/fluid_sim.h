@@ -2,17 +2,20 @@
 
 struct fluid_sim_inputs
 {
+    v2 MousePos;
+    v2 DeltaMousePos;
+    
     f32 FrameTime;
     f32 Density;
     f32 Epsilon;
     u32 Dim;
 
-    // NOTE: Smoke glboals
+    // NOTE: Smoke Globals
     f32 Gravity;
     f32 RoomTemperature;
     f32 MolarMass;
     f32 R;
-
+    
     // NOTE: Splat data
     v2 SplatCenter;
     f32 SplatRadius;
@@ -42,10 +45,12 @@ struct smoke_sim
 
 struct fire_sim
 {
+    vk_image ColorImages[2];
     vk_image TemperatureImages[2];
     vk_image TimerImages[2];
 
     VkDescriptorSet SplatDescriptors[2];
+    VkDescriptorSet FuelDescriptors[2];
     VkDescriptorSet AdvectionDescriptors[2];
     VkDescriptorSet PressureApplyDescriptors[2];
     VkDescriptorSet RenderDescriptors[2];
@@ -139,6 +144,9 @@ struct fluid_sim
     // NOTE: Fire specific data
     VkDescriptorSetLayout FireSplatDescLayout;
     vk_pipeline* FireSplatPipeline;
+
+    VkDescriptorSetLayout FireFuelDescLayout;
+    vk_pipeline* FireFuelPipeline;
 
     VkDescriptorSetLayout FireAdvectionDescLayout;
     vk_pipeline* FireAdvectionPipeline;

@@ -229,9 +229,9 @@ inline smoke_sim SmokeInit(vk_commands Commands, fluid_sim* FluidSim)
 
     VkImageUsageFlags ImageFlags = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
     
-    Result.ColorImages[0] = VkImageCreate(RenderState->Device, &FluidSim->Arena, FluidSim->Width, FluidSim->Height, VK_FORMAT_R32_SFLOAT,
+    Result.ColorImages[0] = VkImageCreate(RenderState->Device, &FluidSim->Arena, FluidSim->Width, FluidSim->Height, VK_FORMAT_R32G32B32A32_SFLOAT,
                                           ImageFlags, VK_IMAGE_ASPECT_COLOR_BIT);
-    Result.ColorImages[1] = VkImageCreate(RenderState->Device, &FluidSim->Arena, FluidSim->Width, FluidSim->Height, VK_FORMAT_R32_SFLOAT,
+    Result.ColorImages[1] = VkImageCreate(RenderState->Device, &FluidSim->Arena, FluidSim->Width, FluidSim->Height, VK_FORMAT_R32G32B32A32_SFLOAT,
                                           ImageFlags, VK_IMAGE_ASPECT_COLOR_BIT);
     
     Result.TemperatureImages[0] = VkImageCreate(RenderState->Device, &FluidSim->Arena, FluidSim->Width, FluidSim->Height, VK_FORMAT_R32_SFLOAT,
@@ -430,6 +430,11 @@ inline fire_sim FireInit(vk_commands Commands, fluid_sim* FluidSim)
 
     VkImageUsageFlags ImageFlags = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
     
+    Result.ColorImages[0] = VkImageCreate(RenderState->Device, &FluidSim->Arena, FluidSim->Width, FluidSim->Height, VK_FORMAT_R32G32B32A32_SFLOAT,
+                                          ImageFlags, VK_IMAGE_ASPECT_COLOR_BIT);
+    Result.ColorImages[1] = VkImageCreate(RenderState->Device, &FluidSim->Arena, FluidSim->Width, FluidSim->Height, VK_FORMAT_R32G32B32A32_SFLOAT,
+                                          ImageFlags, VK_IMAGE_ASPECT_COLOR_BIT);
+    
     Result.TimerImages[0] = VkImageCreate(RenderState->Device, &FluidSim->Arena, FluidSim->Width, FluidSim->Height, VK_FORMAT_R32_SFLOAT,
                                           ImageFlags, VK_IMAGE_ASPECT_COLOR_BIT);
     Result.TimerImages[1] = VkImageCreate(RenderState->Device, &FluidSim->Arena, FluidSim->Width, FluidSim->Height, VK_FORMAT_R32_SFLOAT,
@@ -458,6 +463,25 @@ inline fire_sim FireInit(vk_commands Commands, fluid_sim* FluidSim)
             
         FluidSim->FireSplatPipeline = VkPipelineComputeCreate(RenderState->Device, &RenderState->PipelineManager, &DemoState->TempArena,
                                                               "fluid_fire_splat.spv", "main", Layouts, ArrayCount(Layouts));
+    }
+
+    // NOTE: Fire Fuel Pipeline
+    {
+        {
+            vk_descriptor_layout_builder Builder = VkDescriptorLayoutBegin(&FluidSim->FireFuelDescLayout);
+            VkDescriptorLayoutAdd(&Builder, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT);
+            VkDescriptorLayoutAdd(&Builder, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT);
+            VkDescriptorLayoutEnd(RenderState->Device, &Builder);
+        }
+
+        VkDescriptorSetLayout Layouts[] = 
+            {
+                FluidSim->GlobalDescLayout,
+                FluidSim->FireFuelDescLayout,
+            };
+            
+        FluidSim->FireFuelPipeline = VkPipelineComputeCreate(RenderState->Device, &RenderState->PipelineManager, &DemoState->TempArena,
+                                                             "fluid_fire_burn_fuel.spv", "main", Layouts, ArrayCount(Layouts));
     }
         
     // NOTE: Fire Advection Pipeline
@@ -489,6 +513,7 @@ inline fire_sim FireInit(vk_commands Commands, fluid_sim* FluidSim)
             VkDescriptorLayoutAdd(&Builder, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT);
             VkDescriptorLayoutAdd(&Builder, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT);
             VkDescriptorLayoutAdd(&Builder, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT);
+            VkDescriptorLayoutAdd(&Builder, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT);
             VkDescriptorLayoutAdd(&Builder, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT);
             VkDescriptorLayoutEnd(RenderState->Device, &Builder);
         }
@@ -525,6 +550,21 @@ inline fire_sim FireInit(vk_commands Commands, fluid_sim* FluidSim)
                                    Result.TimerImages[1].View, VK_NULL_HANDLE, VK_IMAGE_LAYOUT_GENERAL);
         }
 
+        // NOTE: Fuel Descriptor (ping pong)
+        {
+            Result.FuelDescriptors[0] = VkDescriptorSetAllocate(RenderState->Device, RenderState->DescriptorPool, FluidSim->FireFuelDescLayout);
+            VkDescriptorImageWrite(&RenderState->DescriptorManager, Result.FuelDescriptors[0], 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                                   Result.TimerImages[0].View, FluidSim->ClampLinearSampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+            VkDescriptorImageWrite(&RenderState->DescriptorManager, Result.FuelDescriptors[0], 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+                                   Result.TemperatureImages[0].View, VK_NULL_HANDLE, VK_IMAGE_LAYOUT_GENERAL);
+
+            Result.FuelDescriptors[1] = VkDescriptorSetAllocate(RenderState->Device, RenderState->DescriptorPool, FluidSim->FireFuelDescLayout);
+            VkDescriptorImageWrite(&RenderState->DescriptorManager, Result.FuelDescriptors[1], 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                                   Result.TimerImages[1].View, FluidSim->ClampLinearSampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+            VkDescriptorImageWrite(&RenderState->DescriptorManager, Result.FuelDescriptors[1], 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+                                   Result.TemperatureImages[1].View, VK_NULL_HANDLE, VK_IMAGE_LAYOUT_GENERAL);
+        }
+
         // NOTE: Advection Descriptor (ping pong)
         {
             Result.AdvectionDescriptors[0] = VkDescriptorSetAllocate(RenderState->Device, RenderState->DescriptorPool, FluidSim->FireAdvectionDescLayout);
@@ -557,6 +597,8 @@ inline fire_sim FireInit(vk_commands Commands, fluid_sim* FluidSim)
                                    Result.TimerImages[0].View, FluidSim->ClampLinearSampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
             VkDescriptorImageWrite(&RenderState->DescriptorManager, Result.PressureApplyDescriptors[0], 4, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
                                    Result.TimerImages[1].View, VK_NULL_HANDLE, VK_IMAGE_LAYOUT_GENERAL);
+            VkDescriptorImageWrite(&RenderState->DescriptorManager, Result.PressureApplyDescriptors[0], 5, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+                                   Result.ColorImages[1].View, VK_NULL_HANDLE, VK_IMAGE_LAYOUT_GENERAL);
 
             Result.PressureApplyDescriptors[1] = VkDescriptorSetAllocate(RenderState->Device, RenderState->DescriptorPool, FluidSim->FirePressureApplyDescLayout);
             VkDescriptorImageWrite(&RenderState->DescriptorManager, Result.PressureApplyDescriptors[1], 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
@@ -569,17 +611,19 @@ inline fire_sim FireInit(vk_commands Commands, fluid_sim* FluidSim)
                                    Result.TimerImages[1].View, FluidSim->ClampLinearSampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
             VkDescriptorImageWrite(&RenderState->DescriptorManager, Result.PressureApplyDescriptors[1], 4, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
                                    Result.TimerImages[0].View, VK_NULL_HANDLE, VK_IMAGE_LAYOUT_GENERAL);
+            VkDescriptorImageWrite(&RenderState->DescriptorManager, Result.PressureApplyDescriptors[1], 5, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+                                   Result.ColorImages[0].View, VK_NULL_HANDLE, VK_IMAGE_LAYOUT_GENERAL);
         }
         
         // NOTE: Render Descriptors
         {
             Result.RenderDescriptors[0] = VkDescriptorSetAllocate(RenderState->Device, RenderState->DescriptorPool, RenderState->CopyImageDescLayout);
             VkDescriptorImageWrite(&RenderState->DescriptorManager, Result.RenderDescriptors[0], 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                                   Result.TimerImages[0].View, DemoState->LinearSampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+                                   Result.ColorImages[0].View, DemoState->PointSampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
             
             Result.RenderDescriptors[1] = VkDescriptorSetAllocate(RenderState->Device, RenderState->DescriptorPool, RenderState->CopyImageDescLayout);
             VkDescriptorImageWrite(&RenderState->DescriptorManager, Result.RenderDescriptors[1], 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                                   Result.TimerImages[1].View, DemoState->LinearSampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+                                   Result.ColorImages[1].View, DemoState->PointSampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
         }
 
         VkDescriptorManagerFlush(RenderState->Device, &RenderState->DescriptorManager);
@@ -589,14 +633,13 @@ inline fire_sim FireInit(vk_commands Commands, fluid_sim* FluidSim)
     FluidSimInitBarriers(Commands, FluidSim->VelocityImages, 1);
     FluidSimInitBarriersUav(Commands, FluidSim->PressureImages, 1);
     FluidSimInitBarriers(Commands, Result.TemperatureImages, 1);
+    FluidSimInitBarriers(Commands, Result.ColorImages, 1);
     VkBarrierManagerFlush(&RenderState->BarrierManager, Commands.Buffer);
 
     // NOTE: Clear all images
     {
-        FluidSim->UniformsCpu.RoomTemperature = 1.0f;
-        
         VkClearColorValue ClearValue = VkClearColorCreate(0, 0, 0, 0).color;
-        VkClearColorValue TemperatureValue = VkClearColorCreate(FluidSim->UniformsCpu.RoomTemperature, 0, 0, 0).color;
+        VkClearColorValue ClearTemperatureValue = VkClearColorCreate(100, 0, 0, 0).color;
         VkImageSubresourceRange Range = {};
         Range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
         Range.baseMipLevel = 0;
@@ -607,7 +650,7 @@ inline fire_sim FireInit(vk_commands Commands, fluid_sim* FluidSim)
         vkCmdClearColorImage(Commands.Buffer, Result.TimerImages[0].Image, VK_IMAGE_LAYOUT_GENERAL, &ClearValue, 1, &Range);
         vkCmdClearColorImage(Commands.Buffer, FluidSim->VelocityImages[0].Image, VK_IMAGE_LAYOUT_GENERAL, &ClearValue, 1, &Range);
         vkCmdClearColorImage(Commands.Buffer, FluidSim->PressureImages[0].Image, VK_IMAGE_LAYOUT_GENERAL, &ClearValue, 1, &Range);
-        vkCmdClearColorImage(Commands.Buffer, Result.TemperatureImages[0].Image, VK_IMAGE_LAYOUT_GENERAL, &TemperatureValue, 1, &Range);
+        vkCmdClearColorImage(Commands.Buffer, Result.TemperatureImages[0].Image, VK_IMAGE_LAYOUT_GENERAL, &ClearTemperatureValue, 1, &Range);
 
         FluidSimSwapBarriers(Commands, Result.TimerImages, 1);
         FluidSimSwapBarriers(Commands, FluidSim->VelocityImages, 1);
@@ -782,6 +825,7 @@ inline void FluidSimSwap(vk_commands Commands, fluid_sim* FluidSim)
 
             FluidSimSwapBarriers(Commands, FireSim->TimerImages, FluidSim->InputId);
             FluidSimSwapBarriers(Commands, FireSim->TemperatureImages, FluidSim->InputId);
+            FluidSimSwapBarriers(Commands, FireSim->ColorImages, FluidSim->InputId);
         } break;
     }
     
@@ -820,31 +864,41 @@ inline void FluidSimInit(vk_commands Commands, fluid_sim* FluidSim)
     VkBarrierManagerFlush(&RenderState->BarrierManager, Commands.Buffer);
 }
 
-inline void FluidSimFrameBegin(fluid_sim* FluidSim, f32 FrameTime)
+inline void FluidSimFrameBegin(fluid_sim* FluidSim, f32 FrameTime, v2 MousePos, v2 PrevMousePos)
 {
-    // TODO: Make framework calculate correct frametime
-    FluidSim->UniformsCpu.FrameTime = 0.25f / 120.0f; //0.25f*FrameTime;
+    {
+        char Text[512];
+        snprintf(Text, sizeof(Text), "Mouse: %f, %f\n", MousePos.x, MousePos.y);
+        OutputDebugStringA(Text);
+    }
+    
+    fluid_sim_inputs* CpuUniforms = &FluidSim->UniformsCpu;
+    
+    CpuUniforms->MousePos = MousePos;
+    CpuUniforms->DeltaMousePos = MousePos - PrevMousePos;
+    CpuUniforms->FrameTime = FrameTime;
     // TODO: Make this configurable
-    FluidSim->UniformsCpu.Density = 1;
+    CpuUniforms->Density = 1;
     Assert(FluidSim->Width == FluidSim->Height);
-    FluidSim->UniformsCpu.Epsilon = 1.0f / f32(FluidSim->Width);
-    FluidSim->UniformsCpu.Dim = FluidSim->Width;
+    CpuUniforms->Epsilon = 1.0f / f32(FluidSim->Width);
+    CpuUniforms->Dim = FluidSim->Width;
 
     // NOTE: Smoke data
-    FluidSim->UniformsCpu.RoomTemperature = 1.0f;
-    FluidSim->UniformsCpu.Gravity = 9.81f;
-    //FluidSim->UniformsCpu.MolarMass = 53.4915f; // NOTE: https://www.webqc.org/molecular-weight-of-NH4Cl%28smoke%29.html
-    FluidSim->UniformsCpu.MolarMass = 332.1099f; // NOTE: https://www.webqc.org/molecular-weight-of-FIRe.html
-    FluidSim->UniformsCpu.R = 8.3145f; // NOTE: https://en.wikipedia.org/wiki/Gas_constant
-
-    // NOTE: Splat data
-    FluidSim->UniformsCpu.SplatCenter = V2(0.5f, 0.1f);
-    FluidSim->UniformsCpu.SplatRadius = 0.01f;
+    //CpuUniforms->RoomTemperature = 1.0f;
+    CpuUniforms->RoomTemperature = 100.0f;
+    CpuUniforms->Gravity = 9.81f;
+    //CpuUniforms->MolarMass = 53.4915f; // NOTE: https://www.webqc.org/molecular-weight-of-NH4Cl%28smoke%29.html
+    CpuUniforms->MolarMass = 332.1099f; // NOTE: https://www.webqc.org/molecular-weight-of-FIRe.html
+    CpuUniforms->R = 8.3145f; // NOTE: https://en.wikipedia.org/wiki/Gas_constant
     
-    fluid_sim_inputs* GpuData = VkTransferPushWriteStruct(&RenderState->TransferManager, FluidSim->UniformBuffer, fluid_sim_inputs,
-                                                     BarrierMask(VkAccessFlagBits(0), VK_PIPELINE_STAGE_ALL_COMMANDS_BIT),
-                                                     BarrierMask(VK_ACCESS_SHADER_READ_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT));
-    Copy(&FluidSim->UniformsCpu, GpuData, sizeof(fluid_sim_inputs));
+    // NOTE: Splat data
+    CpuUniforms->SplatCenter = V2(0.5f, 0.1f);
+    CpuUniforms->SplatRadius = 0.02f;
+    
+    fluid_sim_inputs* GpuUniforms = VkTransferPushWriteStruct(&RenderState->TransferManager, FluidSim->UniformBuffer, fluid_sim_inputs,
+                                                              BarrierMask(VkAccessFlagBits(0), VK_PIPELINE_STAGE_ALL_COMMANDS_BIT),
+                                                              BarrierMask(VK_ACCESS_SHADER_READ_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT));
+    Copy(&FluidSim->UniformsCpu, GpuUniforms, sizeof(fluid_sim_inputs));
 }
 
 inline void FluidSimSimulate(vk_commands Commands, fluid_sim* FluidSim)
@@ -880,11 +934,11 @@ inline void FluidSimSimulate(vk_commands Commands, fluid_sim* FluidSim)
 
             local_global u32 FrameId = 0;
 
-            if (FrameId == 0)
+            //if ((FrameId % 20) == 0)
             {
                 VkComputeDispatch(Commands, FluidSim->SmokeSplatPipeline, DescriptorSets, ArrayCount(DescriptorSets), DispatchX, DispatchY, 1);
-                FrameId = 1;
             }
+                FrameId += 1;
             
             VkBarrierImageAdd(&RenderState->BarrierManager,
                               VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_IMAGE_LAYOUT_GENERAL,
@@ -904,11 +958,6 @@ inline void FluidSimSimulate(vk_commands Commands, fluid_sim* FluidSim)
         case FluidSimType_Fire:
         {
             fire_sim* FireSim = &FluidSim->FireSim;
-            VkDescriptorSet DescriptorSets[] =
-                {
-                    FluidSim->GlobalDescriptor,
-                    FireSim->SplatDescriptors[FluidSim->InputId],
-                };
 
             VkBarrierImageAdd(&RenderState->BarrierManager,
                               VK_ACCESS_SHADER_READ_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
@@ -928,13 +977,19 @@ inline void FluidSimSimulate(vk_commands Commands, fluid_sim* FluidSim)
 
             //if (FrameId == 0)
             {
+                VkDescriptorSet DescriptorSets[] =
+                    {
+                        FluidSim->GlobalDescriptor,
+                        FireSim->SplatDescriptors[FluidSim->InputId],
+                    };
+
                 VkComputeDispatch(Commands, FluidSim->FireSplatPipeline, DescriptorSets, ArrayCount(DescriptorSets), DispatchX, DispatchY, 1);
                 FrameId = 1;
             }
             
             VkBarrierImageAdd(&RenderState->BarrierManager,
                               VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_IMAGE_LAYOUT_GENERAL,
-                              VK_ACCESS_SHADER_READ_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                              VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_IMAGE_LAYOUT_GENERAL,
                               VK_IMAGE_ASPECT_COLOR_BIT, FireSim->TemperatureImages[FluidSim->InputId].Image);
             VkBarrierImageAdd(&RenderState->BarrierManager,
                               VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_IMAGE_LAYOUT_GENERAL,
@@ -944,6 +999,23 @@ inline void FluidSimSimulate(vk_commands Commands, fluid_sim* FluidSim)
                               VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_IMAGE_LAYOUT_GENERAL,
                               VK_ACCESS_SHADER_READ_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                               VK_IMAGE_ASPECT_COLOR_BIT, FluidSim->VelocityImages[FluidSim->InputId].Image);
+            VkBarrierManagerFlush(&RenderState->BarrierManager, Commands.Buffer);
+
+            // NOTE: Burn Fuel
+            {
+                VkDescriptorSet DescriptorSets[] =
+                    {
+                        FluidSim->GlobalDescriptor,
+                        FireSim->FuelDescriptors[FluidSim->InputId],
+                    };
+
+                VkComputeDispatch(Commands, FluidSim->FireFuelPipeline, DescriptorSets, ArrayCount(DescriptorSets), DispatchX, DispatchY, 1);
+            }
+            
+            VkBarrierImageAdd(&RenderState->BarrierManager,
+                              VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_IMAGE_LAYOUT_GENERAL,
+                              VK_ACCESS_SHADER_READ_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                              VK_IMAGE_ASPECT_COLOR_BIT, FireSim->TemperatureImages[FluidSim->InputId].Image);
             VkBarrierManagerFlush(&RenderState->BarrierManager, Commands.Buffer);
         } break;
     }
@@ -1012,7 +1084,7 @@ inline void FluidSimSimulate(vk_commands Commands, fluid_sim* FluidSim)
     VkBarrierManagerFlush(&RenderState->BarrierManager, Commands.Buffer);
 
     // NOTE: Pressure Iteration
-    for (u32 IterationId = 0; IterationId < 100; ++IterationId)
+    for (u32 IterationId = 0; IterationId < 20; ++IterationId)
     {
         VkDescriptorSet DescriptorSets[] =
         {

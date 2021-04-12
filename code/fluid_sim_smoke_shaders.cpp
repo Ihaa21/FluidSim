@@ -29,27 +29,27 @@ void main()
             Uv.y >= (FluidSimInputs.SplatCenter.y - FluidSimInputs.SplatRadius) &&
             Uv.y <= (FluidSimInputs.SplatCenter.y + FluidSimInputs.SplatRadius))
         {
-#if 0
+#if 1
             // NOTE: Exponential splat
             float Dx = FluidSimInputs.SplatCenter.x - Uv.x;
             float Dy = FluidSimInputs.SplatCenter.y - Uv.y;
-            SplatValue = exp(-(Dx * Dx + Dy * Dy) / FluidSimInputs.SplatRadius);
+            SplatValue = 0.1f*exp(-(Dx * Dx + Dy * Dy) / FluidSimInputs.SplatRadius);
 #else
             SplatValue = 1.0f;
 #endif
 
             // NOTE: Update temperature
             float CurrTemperature = imageLoad(TemperatureImage, ivec2(gl_GlobalInvocationID.xy)).x;
-            float NewTemperature = CurrTemperature + 0.01f*SplatValue;
+            float NewTemperature = CurrTemperature + 0.0001f*SplatValue;
             imageStore(TemperatureImage, ivec2(gl_GlobalInvocationID.xy), vec4(NewTemperature, 0, 0, 0));
 
             // NOTE: Update color
             float CurrColor = imageLoad(ColorImage, ivec2(gl_GlobalInvocationID.xy)).x;
-            float NewColor = CurrColor + SplatValue;
-            imageStore(ColorImage, ivec2(gl_GlobalInvocationID.xy), vec4(NewColor, 0, 0, 0));
+            float NewColor = CurrColor + 0.1f*SplatValue;
+            imageStore(ColorImage, ivec2(gl_GlobalInvocationID.xy), vec4(NewColor, NewColor, NewColor, 1));
 
             // NOTE: Update velocity
-            vec2 NewVelocity = 0.01f*vec2(0, SplatValue);
+            vec2 NewVelocity = 0.0001f*vec2(0, SplatValue);
             imageStore(VelocityImage, ivec2(gl_GlobalInvocationID.xy), vec4(NewVelocity, 0, 0));
         }
     }

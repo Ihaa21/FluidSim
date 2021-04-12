@@ -283,7 +283,7 @@ DEMO_INIT(Init)
     {
         render_scene* Scene = &DemoState->Scene;
         
-        FluidSimFrameBegin(&DemoState->TiledDeferredState.FluidSim, 0.0f);
+        FluidSimFrameBegin(&DemoState->TiledDeferredState.FluidSim, 0.0f, V2(0), V2(0));
         
         // NOTE: White Texture
         vk_image WhiteTextureImage = {};
@@ -460,7 +460,7 @@ DEMO_MAIN_LOOP(MainLoop)
                                    V4(0.0f, 0.0f, 1.0f, 1.0f), 2);
         }
 
-        FluidSimFrameBegin(&DemoState->TiledDeferredState.FluidSim, FrameTime);
+        FluidSimFrameBegin(&DemoState->TiledDeferredState.FluidSim, FrameTime, CurrInput->MouseNormalizedPos, PrevInput->MouseNormalizedPos);
         
         // NOTE: Push materials
         if (Scene->NumMaterials > 0)

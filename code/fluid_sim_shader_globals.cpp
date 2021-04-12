@@ -19,6 +19,9 @@
 
 layout(set = 0, binding = 0) uniform fluid_sim_inputs
 {
+    vec2 MousePos;
+    vec2 DeltaMousePos;
+    
     float FrameTime;
     float Density;
     float Epsilon;
@@ -29,7 +32,7 @@ layout(set = 0, binding = 0) uniform fluid_sim_inputs
     float RoomTemperature;
     float MolarMass;
     float R; // NOTE: Universal gas constant
-
+    
     // NOTE: Splat data
     vec2 SplatCenter;
     float SplatRadius;
