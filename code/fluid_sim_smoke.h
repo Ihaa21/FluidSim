@@ -1,6 +1,6 @@
 #pragma once
 
-struct fire_inputs
+struct smoke_inputs
 {
     v2 MousePos;
     v2 DeltaMousePos;
@@ -20,7 +20,7 @@ struct fire_inputs
     u32 Pad0;
 };
 
-struct fire_sim
+struct smoke_sim
 {
     u32 InputId;
     u32 PressureInputId;
@@ -29,14 +29,13 @@ struct fire_sim
     
     vk_image ColorImages[2];
     vk_image TemperatureImages[2];
-    vk_image TimerImages[2];
     vk_image VelocityImages[2];
     vk_image DivergenceImage;
     vk_image PressureImages[2];
 
     VkDescriptorSetLayout GlobalDescLayout;
     VkDescriptorSet GlobalDescriptor;
-    fire_inputs Inputs;
+    smoke_inputs Inputs;
     VkBuffer UniformBuffer;
 
     VkDescriptorSet SplatDescriptors[2];
@@ -45,7 +44,7 @@ struct fire_sim
     VkDescriptorSet PressureDescriptors[2];
     VkDescriptorSet PressureApplyDescriptors[2];
     VkDescriptorSet RenderDescriptors[2];
-
+    
     VkDescriptorSetLayout SplatDescLayout;
     vk_pipeline* SplatPipeline;
 
@@ -62,4 +61,4 @@ struct fire_sim
     vk_pipeline* PressureApplyPipeline;
 };
 
-inline void FireSetInputs(fire_sim* Fire, vk_commands* Commands, f32 FrameTime, v2 MousePos, v2 PrevMousePos);
+inline void SmokeSetInputs(smoke_sim* Smoke, vk_commands* Commands, f32 FrameTime, v2 MousePos, v2 PrevMousePos);

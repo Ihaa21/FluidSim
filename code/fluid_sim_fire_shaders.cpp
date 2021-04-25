@@ -6,11 +6,43 @@
 
 #include "fluid_sim_shader_globals.cpp"
 
+layout(set = 0, binding = 0) uniform fluid_sim_inputs
+{
+    vec2 MousePos;
+    vec2 DeltaMousePos;
+    
+    float FrameTime;
+    float Density;
+    float Epsilon;
+    uint Dim;
+
+    float Gravity;
+    float RoomTemperature;
+    float MolarMass;
+    float R;
+    
+    vec2 SplatCenter;
+    float SplatRadius;
+} FluidSimInputs;
+
+layout(set = 0, binding = 1, r32f) uniform image2D DivergenceImage;
+
+vec2 GetUv(vec2 InvocationId)
+{
+    vec2 Result = (InvocationId + vec2(0.5)) / vec2(FluidSimInputs.Dim, FluidSimInputs.Dim);
+    return Result;
+}
+
+vec2 GetUv()
+{
+    return GetUv(gl_GlobalInvocationID.xy);
+}
+
 //
-// NOTE: Fire Splat
+// NOTE: Splat
 //
 
-#if FIRE_SPLAT
+#if SPLAT
 
 layout(set = 1, binding = 0, r32f) uniform image2D TemperatureImage;
 layout(set = 1, binding = 1, r32f) uniform image2D VelocityImage;
@@ -76,45 +108,10 @@ void main()
 #endif
 
 //
-// NOTE: Fire Combustion
+// NOTE: Advection
 //
 
-#if FIRE_BURN_FUEL
-
-layout(set = 1, binding = 0) uniform sampler2D InTimerImage;
-
-layout(set = 1, binding = 1, r32f) uniform image2D TemperatureImage;
-
-layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
-void main()
-{
-#if 0
-    vec2 TextureSize = vec2(FluidSimInputs.Dim, FluidSimInputs.Dim);
-    if (gl_GlobalInvocationID.x < TextureSize.x && gl_GlobalInvocationID.y < TextureSize.y)
-    {
-        vec2 Uv = GetUv();
-        // TODO: Can we remove all of this and just use splats to modify the temperature? 
-        float Temperature = imageLoad(TemperatureImage, ivec2(gl_GlobalInvocationID.xy)).x;
-        float Fuel = texture(InTimerImage, Uv).x;
-
-        // NOTE: Cool temperature
-        Temperature = max(0.0f, Temperature - FluidSimInputs.FrameTime * FluidSimInputs.FireCooling * pow(Temperature / FluidSimInputs.FireBurnTemp, 4.0f));
-
-        // NOTE: Add more heat based on fuel
-        Temperature = max(Temperature, Fuel*FluidSimInputs.FireBurnTemp);
-        
-        //imageStore(TemperatureImage, ivec2(gl_GlobalInvocationID.xy), vec4(Temperature, 0, 0, 0));
-    }
-#endif
-}
-
-#endif
-
-//
-// NOTE: Fire Advection
-//
-
-#if FIRE_ADVECTION
+#if ADVECTION
 
 layout(set = 1, binding = 0) uniform sampler2D InVelocityImage;
 layout(set = 1, binding = 1, rg32f) uniform image2D OutVelocityImage;
@@ -126,8 +123,10 @@ void main()
 {
     vec2 TextureSize = vec2(FluidSimInputs.Dim, FluidSimInputs.Dim);
     if (gl_GlobalInvocationID.x < TextureSize.x && gl_GlobalInvocationID.y < TextureSize.y)
-    {        
-        vec2 SamplePos = AdvectionFindPos(InVelocityImage, gl_GlobalInvocationID.xy, TextureSize);
+    {
+        ivec2 PixelCoord = ivec2(gl_GlobalInvocationID.xy);
+        vec2 CurrVel = texelFetch(InVelocityImage, PixelCoord, 0).xy;
+        vec2 SamplePos = AdvectionFindPos(CurrVel, gl_GlobalInvocationID.xy, TextureSize, FluidSimInputs.FrameTime);
 
         // NOTE: Get buoyancy force
         float Temperature = texture(InTemperatureImage, GetUv()).x;
@@ -142,17 +141,83 @@ void main()
         
         // NOTE: Advect the velocity field
         vec2 NewVelocity = texture(InVelocityImage, SamplePos).xy + Buoyancy * vec2(0, 1);
-        imageStore(OutVelocityImage, ivec2(gl_GlobalInvocationID.xy), vec4(NewVelocity, 0, 0));
+        imageStore(OutVelocityImage, PixelCoord, vec4(NewVelocity, 0, 0));
     }
 }
 
 #endif
 
 //
-// NOTE: Fire Pressure Application
+// NOTE: Divergence
 //
 
-#if FIRE_PRESSURE_APPLY
+#if DIVERGENCE
+
+layout(set = 1, binding = 0) uniform sampler2D InVelocityImage;
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+void main()
+{
+    vec2 TextureSize = vec2(FluidSimInputs.Dim, FluidSimInputs.Dim);
+    if (gl_GlobalInvocationID.x < TextureSize.x && gl_GlobalInvocationID.y < TextureSize.y)
+    {
+        vec2 Uv = GetUv();
+
+        float VelRight = textureOffset(InVelocityImage, Uv, ivec2(1, 0)).x;
+        float VelLeft = textureOffset(InVelocityImage, Uv, -ivec2(1, 0)).x;
+        float VelUp = textureOffset(InVelocityImage, Uv, ivec2(0, 1)).y;
+        float VelDown = textureOffset(InVelocityImage, Uv, -ivec2(0, 1)).y;
+
+        // IMPORTANT: Seems that removing the sub brackets changes the precision or something because results look different
+        float Multiplier = ((-2.0 * FluidSimInputs.Epsilon * FluidSimInputs.Density) / FluidSimInputs.FrameTime);
+        float Divergence = Multiplier * ((VelRight - VelLeft) + (VelUp - VelDown));
+        imageStore(DivergenceImage, ivec2(gl_GlobalInvocationID.xy), vec4(Divergence, 0, 0, 0));
+    }    
+}
+
+#endif
+
+//
+// NOTE: Pressure Iteration (Jacobis Method)
+//
+
+#if PRESSURE_ITERATION
+
+layout(set = 1, binding = 0, r32f) uniform image2D InPressureImage;
+layout(set = 1, binding = 1, r32f) uniform image2D OutPressureImage;
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+void main()
+{
+    vec2 TextureSize = vec2(FluidSimInputs.Dim, FluidSimInputs.Dim);
+    if (gl_GlobalInvocationID.x < TextureSize.x && gl_GlobalInvocationID.y < TextureSize.y)
+    {
+        ivec2 CenterCoord = ivec2(gl_GlobalInvocationID.xy);
+        ivec2 LeftCoord = ClampPixelCoord(CenterCoord, -ivec2(2, 0), ivec2(TextureSize));
+        ivec2 RightCoord = ClampPixelCoord(CenterCoord, ivec2(2, 0), ivec2(TextureSize));
+        ivec2 UpCoord = ClampPixelCoord(CenterCoord, ivec2(0, 2), ivec2(TextureSize));
+        ivec2 DownCoord = ClampPixelCoord(CenterCoord, -ivec2(0, 2), ivec2(TextureSize));
+        
+        float PressureCenter = imageLoad(InPressureImage, CenterCoord).x;
+        float PressureLeft = imageLoad(InPressureImage, LeftCoord).x;
+        float PressureRight = imageLoad(InPressureImage, RightCoord).x;
+        float PressureUp = imageLoad(InPressureImage, UpCoord).x;
+        float PressureDown = imageLoad(InPressureImage, DownCoord).x;
+        
+        float Divergence = imageLoad(DivergenceImage, CenterCoord).x;
+        float NewPressureCenter = (Divergence + PressureRight + PressureLeft + PressureUp + PressureDown) * 0.25f;
+
+        imageStore(OutPressureImage, CenterCoord, vec4(NewPressureCenter, 0, 0, 0));
+    }
+}
+
+#endif
+
+//
+// NOTE: Pressure Application
+//
+
+#if PRESSURE_APPLY
 
 layout(set = 1, binding = 0, rg32f) uniform image2D VelocityImage;
 
@@ -164,31 +229,39 @@ layout(set = 1, binding = 4, r32f) uniform image2D OutTimerImage;
 
 layout(set = 1, binding = 5, rgba32f) uniform image2D OutColorImage;
 
+layout(set = 2, binding = 0, r32f) uniform image2D InPressureImage;
+layout(set = 2, binding = 1, r32f) uniform image2D OutPressureImage;
+
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 void main()
 {
     vec2 TextureSize = vec2(FluidSimInputs.Dim, FluidSimInputs.Dim);
     if (gl_GlobalInvocationID.x < TextureSize.x && gl_GlobalInvocationID.y < TextureSize.y)
     {
-        vec2 Uv = GetUv();
+        ivec2 CenterCoord = ivec2(gl_GlobalInvocationID.xy);
         
         // NOTE: Apply pressure
         vec2 CorrectedVel;
         {
-            float PressureLeft = LoadPressureClamp(ivec2(gl_GlobalInvocationID.xy), -ivec2(1, 0), TextureSize).x;
-            float PressureRight = LoadPressureClamp(ivec2(gl_GlobalInvocationID.xy), ivec2(1, 0), TextureSize).x;
-            float PressureUp = LoadPressureClamp(ivec2(gl_GlobalInvocationID.xy), ivec2(0, 1), TextureSize).x;
-            float PressureDown = LoadPressureClamp(ivec2(gl_GlobalInvocationID.xy), -ivec2(0, 1), TextureSize).x;
+            ivec2 LeftCoord = ClampPixelCoord(CenterCoord, -ivec2(1, 0), ivec2(TextureSize));
+            ivec2 RightCoord = ClampPixelCoord(CenterCoord, ivec2(1, 0), ivec2(TextureSize));
+            ivec2 UpCoord = ClampPixelCoord(CenterCoord, ivec2(0, 1), ivec2(TextureSize));
+            ivec2 DownCoord = ClampPixelCoord(CenterCoord, -ivec2(0, 1), ivec2(TextureSize));
+
+            float PressureLeft = imageLoad(InPressureImage, LeftCoord).x;
+            float PressureRight = imageLoad(InPressureImage, RightCoord).x;
+            float PressureUp = imageLoad(InPressureImage, UpCoord).x;
+            float PressureDown = imageLoad(InPressureImage, DownCoord).x;
 
             float Multiplier = (FluidSimInputs.FrameTime / (2*FluidSimInputs.Density*FluidSimInputs.Epsilon));
-            vec2 AdvectedVel = imageLoad(VelocityImage, ivec2(gl_GlobalInvocationID.xy)).xy;
+            vec2 AdvectedVel = imageLoad(VelocityImage, CenterCoord).xy;
             CorrectedVel.x = AdvectedVel.x - Multiplier * (PressureRight - PressureLeft);
             CorrectedVel.y = AdvectedVel.y - Multiplier * (PressureUp - PressureDown);
             
-            imageStore(VelocityImage, ivec2(gl_GlobalInvocationID.xy), vec4(CorrectedVel, 0, 0));
+            imageStore(VelocityImage, CenterCoord, vec4(CorrectedVel, 0, 0));
         }
 
-        vec2 SamplePos = AdvectionFindPos(CorrectedVel, gl_GlobalInvocationID.xy, TextureSize);
+        vec2 SamplePos = AdvectionFindPos(CorrectedVel, CenterCoord, TextureSize, FluidSimInputs.FrameTime);
 
         // NOTE: Advect the timer coordinate
         float NewTimer;
@@ -196,7 +269,7 @@ void main()
             NewTimer = texture(InTimerImage, SamplePos).x;
             NewTimer.x = max(0.0f, NewTimer.x - FluidSimInputs.FrameTime);
             //NewTimer.x = 0.92f * NewTimer.x;
-            imageStore(OutTimerImage, ivec2(gl_GlobalInvocationID.xy), vec4(NewTimer, 0, 0, 0));
+            imageStore(OutTimerImage, CenterCoord, vec4(NewTimer, 0, 0, 0));
         }
 
         // NOTE: Advect the temperature
@@ -204,7 +277,7 @@ void main()
             vec4 NewTemperature = texture(InTemperatureImage, SamplePos);
             // TODO: REMOVE THE HACK
             NewTemperature.x = max(NewTemperature.x, FluidSimInputs.RoomTemperature);
-            imageStore(OutTemperatureImage, ivec2(gl_GlobalInvocationID.xy), NewTemperature);
+            imageStore(OutTemperatureImage, CenterCoord, NewTemperature);
         }
 
         // NOTE: Set the color

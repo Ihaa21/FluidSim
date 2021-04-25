@@ -1,6 +1,6 @@
 #pragma once
 
-struct fire_inputs
+struct diffusion_inputs
 {
     v2 MousePos;
     v2 DeltaMousePos;
@@ -10,17 +10,11 @@ struct fire_inputs
     f32 Epsilon;
     u32 Dim;
 
-    f32 Gravity;
-    f32 RoomTemperature;
-    f32 MolarMass;
-    f32 R;
-    
     v2 SplatCenter;
     f32 SplatRadius;
-    u32 Pad0;
 };
 
-struct fire_sim
+struct diffusion_sim
 {
     u32 InputId;
     u32 PressureInputId;
@@ -28,26 +22,24 @@ struct fire_sim
     u32 Height;
     
     vk_image ColorImages[2];
-    vk_image TemperatureImages[2];
-    vk_image TimerImages[2];
     vk_image VelocityImages[2];
     vk_image DivergenceImage;
     vk_image PressureImages[2];
 
     VkDescriptorSetLayout GlobalDescLayout;
     VkDescriptorSet GlobalDescriptor;
-    fire_inputs Inputs;
+    diffusion_inputs Inputs;
     VkBuffer UniformBuffer;
-
-    VkDescriptorSet SplatDescriptors[2];
+    
+    VkDescriptorSet InitDescriptor;
     VkDescriptorSet AdvectionDescriptors[2];
     VkDescriptorSet DivergenceDescriptors[2];
     VkDescriptorSet PressureDescriptors[2];
     VkDescriptorSet PressureApplyDescriptors[2];
     VkDescriptorSet RenderDescriptors[2];
 
-    VkDescriptorSetLayout SplatDescLayout;
-    vk_pipeline* SplatPipeline;
+    VkDescriptorSetLayout InitDescLayout;
+    vk_pipeline* InitPipeline;
 
     VkDescriptorSetLayout AdvectionDescLayout;
     vk_pipeline* AdvectionPipeline;
@@ -62,4 +54,4 @@ struct fire_sim
     vk_pipeline* PressureApplyPipeline;
 };
 
-inline void FireSetInputs(fire_sim* Fire, vk_commands* Commands, f32 FrameTime, v2 MousePos, v2 PrevMousePos);
+inline void DiffusionSetInputs(diffusion_sim* Diffusion, vk_commands* Commands, f32 FrameTime, v2 MousePos, v2 PrevMousePos);

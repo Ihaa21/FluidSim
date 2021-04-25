@@ -21,36 +21,26 @@ pushd %OutputDir%
 del *.pdb > NUL 2> NUL
 
 REM USING GLSL IN VK USING GLSLANGVALIDATOR
-call glslangValidator -DGRID_FRUSTUM=1 -S comp -e main -g -V -o %DataDir%\tiled_deferred_grid_frustum.spv %CodeDir%\tiled_deferred_shaders.cpp
-call glslangValidator -DLIGHT_CULLING=1 -S comp -e main -g -V -o %DataDir%\tiled_deferred_light_culling.spv %CodeDir%\tiled_deferred_shaders.cpp
-call glslangValidator -DGBUFFER_VERT=1 -S vert -e main -g -V -o %DataDir%\tiled_deferred_gbuffer_vert.spv %CodeDir%\tiled_deferred_shaders.cpp
-call glslangValidator -DGBUFFER_FRAG=1 -S frag -e main -g -V -o %DataDir%\tiled_deferred_gbuffer_frag.spv %CodeDir%\tiled_deferred_shaders.cpp
-call glslangValidator -DTILED_DEFERRED_LIGHTING_VERT=1 -S vert -e main -g -V -o %DataDir%\tiled_deferred_lighting_vert.spv %CodeDir%\tiled_deferred_shaders.cpp
-call glslangValidator -DTILED_DEFERRED_LIGHTING_FRAG=1 -S frag -e main -g -V -o %DataDir%\tiled_deferred_lighting_frag.spv %CodeDir%\tiled_deferred_shaders.cpp
-
-REM FluidSim
-call glslangValidator -DDIVERGENCE=1 -S comp -e main -g -V -o %DataDir%\fluid_divergence.spv %CodeDir%\fluid_sim_shaders.cpp
-call glslangValidator -DPRESSURE_MIRROR_ITERATION=1 -S comp -e main -g -V -o %DataDir%\fluid_pressure_mirror_iteration.spv %CodeDir%\fluid_sim_shaders.cpp
-call glslangValidator -DPRESSURE_CLAMP_ITERATION=1 -S comp -e main -g -V -o %DataDir%\fluid_pressure_clamp_iteration.spv %CodeDir%\fluid_sim_shaders.cpp
-
 REM Diffusion
-call glslangValidator -DDIFFUSION_INIT=1 -S comp -e main -g -V -o %DataDir%\fluid_diffusion_init.spv %CodeDir%\fluid_sim_diffusion_shaders.cpp
-call glslangValidator -DDIFFUSION_ADVECTION=1 -S comp -e main -g -V -o %DataDir%\fluid_diffusion_advection.spv %CodeDir%\fluid_sim_diffusion_shaders.cpp
-call glslangValidator -DDIFFUSION_PRESSURE_APPLY=1 -S comp -e main -g -V -o %DataDir%\fluid_diffusion_pressure_apply.spv %CodeDir%\fluid_sim_diffusion_shaders.cpp
+call glslangValidator -DINIT=1 -S comp -e main -g -V -o %DataDir%\diffusion_init.spv %CodeDir%\fluid_sim_diffusion_shaders.cpp
+call glslangValidator -DADVECTION=1 -S comp -e main -g -V -o %DataDir%\diffusion_advection.spv %CodeDir%\fluid_sim_diffusion_shaders.cpp
+call glslangValidator -DDIVERGENCE=1 -S comp -e main -g -V -o %DataDir%\diffusion_divergence.spv %CodeDir%\fluid_sim_diffusion_shaders.cpp
+call glslangValidator -DPRESSURE_ITERATION=1 -S comp -e main -g -V -o %DataDir%\diffusion_pressure_iteration.spv %CodeDir%\fluid_sim_diffusion_shaders.cpp
+call glslangValidator -DPRESSURE_APPLY=1 -S comp -e main -g -V -o %DataDir%\diffusion_pressure_apply.spv %CodeDir%\fluid_sim_diffusion_shaders.cpp
 
 REM Smoke
-call glslangValidator -DSMOKE_SPLAT=1 -S comp -e main -g -V -o %DataDir%\fluid_smoke_splat.spv %CodeDir%\fluid_sim_smoke_shaders.cpp
-call glslangValidator -DSMOKE_ADVECTION=1 -S comp -e main -g -V -o %DataDir%\fluid_smoke_advection.spv %CodeDir%\fluid_sim_smoke_shaders.cpp
-call glslangValidator -DSMOKE_PRESSURE_APPLY=1 -S comp -e main -g -V -o %DataDir%\fluid_smoke_pressure_apply.spv %CodeDir%\fluid_sim_smoke_shaders.cpp
+call glslangValidator -DSPLAT=1 -S comp -e main -g -V -o %DataDir%\smoke_splat.spv %CodeDir%\fluid_sim_smoke_shaders.cpp
+call glslangValidator -DADVECTION=1 -S comp -e main -g -V -o %DataDir%\smoke_advection.spv %CodeDir%\fluid_sim_smoke_shaders.cpp
+call glslangValidator -DDIVERGENCE=1 -S comp -e main -g -V -o %DataDir%\smoke_divergence.spv %CodeDir%\fluid_sim_smoke_shaders.cpp
+call glslangValidator -DPRESSURE_ITERATION=1 -S comp -e main -g -V -o %DataDir%\smoke_pressure_iteration.spv %CodeDir%\fluid_sim_smoke_shaders.cpp
+call glslangValidator -DPRESSURE_APPLY=1 -S comp -e main -g -V -o %DataDir%\smoke_pressure_apply.spv %CodeDir%\fluid_sim_smoke_shaders.cpp
 
 REM Fire
-call glslangValidator -DFIRE_SPLAT=1 -S comp -e main -g -V -o %DataDir%\fluid_fire_splat.spv %CodeDir%\fluid_sim_fire_shaders.cpp
-call glslangValidator -DFIRE_BURN_FUEL=1 -S comp -e main -g -V -o %DataDir%\fluid_fire_burn_fuel.spv %CodeDir%\fluid_sim_fire_shaders.cpp
-call glslangValidator -DFIRE_ADVECTION=1 -S comp -e main -g -V -o %DataDir%\fluid_fire_advection.spv %CodeDir%\fluid_sim_fire_shaders.cpp
-call glslangValidator -DFIRE_PRESSURE_APPLY=1 -S comp -e main -g -V -o %DataDir%\fluid_fire_pressure_apply.spv %CodeDir%\fluid_sim_fire_shaders.cpp
-
-REM Shadows
-call glslangValidator -DSHADOW_VERT=1 -S vert -e main -g -V -o %DataDir%\shadow_vert.spv %CodeDir%\tiled_deferred_shaders.cpp
+call glslangValidator -DSPLAT=1 -S comp -e main -g -V -o %DataDir%\fire_splat.spv %CodeDir%\fluid_sim_fire_shaders.cpp
+call glslangValidator -DADVECTION=1 -S comp -e main -g -V -o %DataDir%\fire_advection.spv %CodeDir%\fluid_sim_fire_shaders.cpp
+call glslangValidator -DDIVERGENCE=1 -S comp -e main -g -V -o %DataDir%\fire_divergence.spv %CodeDir%\fluid_sim_fire_shaders.cpp
+call glslangValidator -DPRESSURE_ITERATION=1 -S comp -e main -g -V -o %DataDir%\fire_pressure_iteration.spv %CodeDir%\fluid_sim_fire_shaders.cpp
+call glslangValidator -DPRESSURE_APPLY=1 -S comp -e main -g -V -o %DataDir%\fire_pressure_apply.spv %CodeDir%\fluid_sim_fire_shaders.cpp
 
 REM USING HLSL IN VK USING DXC
 REM set DxcDir=C:\Tools\DirectXShaderCompiler\build\Debug\bin
