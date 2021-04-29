@@ -20,9 +20,10 @@ layout(set = 0, binding = 0) uniform fluid_sim_inputs
     float RoomTemperature;
     float MolarMass;
     float R;
+    float Buoyancy;
     
-    vec2 SplatCenter;
     float SplatRadius;
+    vec2 SplatCenter;
 } FluidSimInputs;
 
 layout(set = 0, binding = 1, r32f) uniform image2D DivergenceImage;
@@ -127,20 +128,20 @@ void main()
         ivec2 PixelCoord = ivec2(gl_GlobalInvocationID.xy);
         vec2 CurrVel = texelFetch(InVelocityImage, PixelCoord, 0).xy;
         vec2 SamplePos = AdvectionFindPos(CurrVel, gl_GlobalInvocationID.xy, TextureSize, FluidSimInputs.FrameTime);
-
+        
         // NOTE: Get buoyancy force
         float Temperature = texture(InTemperatureImage, GetUv()).x;
-#if 1
+#if 0
         Temperature = max(FluidSimInputs.RoomTemperature, Temperature);
         float Multiplier = FluidSimInputs.MolarMass * FluidSimInputs.Gravity / FluidSimInputs.R;
         float PressureConstant = 1.0f;
-        float Buoyancy = Multiplier * ((1.0f / FluidSimInputs.RoomTemperature) - (1.0f / Temperature));
+        float TemperatureVel = Multiplier * ((1.0f / FluidSimInputs.RoomTemperature) - (1.0f / Temperature));
 #else
-        float Buoyancy = 0.2f * FluidSimInputs.FrameTime * Temperature;
+        float TemperatureVel = FluidSimInputs.Buoyancy * FluidSimInputs.FrameTime * Temperature;
 #endif
         
         // NOTE: Advect the velocity field
-        vec2 NewVelocity = texture(InVelocityImage, SamplePos).xy + Buoyancy * vec2(0, 1);
+        vec2 NewVelocity = texture(InVelocityImage, SamplePos).xy + TemperatureVel * vec2(0, 1);
         imageStore(OutVelocityImage, PixelCoord, vec4(NewVelocity, 0, 0));
     }
 }
@@ -169,7 +170,8 @@ void main()
         float VelDown = textureOffset(InVelocityImage, Uv, -ivec2(0, 1)).y;
 
         // IMPORTANT: Seems that removing the sub brackets changes the precision or something because results look different
-        float Multiplier = ((-2.0 * FluidSimInputs.Epsilon * FluidSimInputs.Density) / FluidSimInputs.FrameTime);
+        //float Multiplier = ((-2.0 * FluidSimInputs.Epsilon * FluidSimInputs.Density) / FluidSimInputs.FrameTime);
+        float Multiplier = 0.5f;
         float Divergence = Multiplier * ((VelRight - VelLeft) + (VelUp - VelDown));
         imageStore(DivergenceImage, ivec2(gl_GlobalInvocationID.xy), vec4(Divergence, 0, 0, 0));
     }    
@@ -193,10 +195,10 @@ void main()
     if (gl_GlobalInvocationID.x < TextureSize.x && gl_GlobalInvocationID.y < TextureSize.y)
     {
         ivec2 CenterCoord = ivec2(gl_GlobalInvocationID.xy);
-        ivec2 LeftCoord = ClampPixelCoord(CenterCoord, -ivec2(2, 0), ivec2(TextureSize));
-        ivec2 RightCoord = ClampPixelCoord(CenterCoord, ivec2(2, 0), ivec2(TextureSize));
-        ivec2 UpCoord = ClampPixelCoord(CenterCoord, ivec2(0, 2), ivec2(TextureSize));
-        ivec2 DownCoord = ClampPixelCoord(CenterCoord, -ivec2(0, 2), ivec2(TextureSize));
+        ivec2 LeftCoord = ClampPixelCoord(CenterCoord, -ivec2(1, 0), ivec2(TextureSize));
+        ivec2 RightCoord = ClampPixelCoord(CenterCoord, ivec2(1, 0), ivec2(TextureSize));
+        ivec2 UpCoord = ClampPixelCoord(CenterCoord, ivec2(0, 1), ivec2(TextureSize));
+        ivec2 DownCoord = ClampPixelCoord(CenterCoord, -ivec2(0, 1), ivec2(TextureSize));
         
         float PressureCenter = imageLoad(InPressureImage, CenterCoord).x;
         float PressureLeft = imageLoad(InPressureImage, LeftCoord).x;
@@ -253,7 +255,8 @@ void main()
             float PressureUp = imageLoad(InPressureImage, UpCoord).x;
             float PressureDown = imageLoad(InPressureImage, DownCoord).x;
 
-            float Multiplier = (FluidSimInputs.FrameTime / (2*FluidSimInputs.Density*FluidSimInputs.Epsilon));
+            //float Multiplier = (FluidSimInputs.FrameTime / (2*FluidSimInputs.Density*FluidSimInputs.Epsilon));
+            float Multiplier = 1.0f;
             vec2 AdvectedVel = imageLoad(VelocityImage, CenterCoord).xy;
             CorrectedVel.x = AdvectedVel.x - Multiplier * (PressureRight - PressureLeft);
             CorrectedVel.y = AdvectedVel.y - Multiplier * (PressureUp - PressureDown);

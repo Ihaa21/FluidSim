@@ -206,9 +206,97 @@ DEMO_MAIN_LOOP(MainLoop)
         UiStateBegin(UiState, FrameTime, RenderState->WindowWidth, RenderState->WindowHeight, UiCurrInput);
         local_global v2 PanelPos = V2(100, 800);
 
-        ui_panel Panel = UiPanelBegin(UiState, &PanelPos, "Shadow Panel");
-        UiPanelText(&Panel, "Shadow Data:");
-        UiPanelEnd(&Panel);
+        switch (DemoState->Type)
+        {
+            case FluidSimType_Fire:
+            {
+                fire_inputs* Inputs = &DemoState->FireSim.Inputs;
+                ui_panel Panel = UiPanelBegin(UiState, &PanelPos, "Fire Panel");
+                UiPanelText(&Panel, "Fire Data:");
+
+                UiPanelNextRowIndent(&Panel);
+                b32 ResetSim = UiPanelButton(&Panel, "Reset Sim");
+                b32 RenderColor = UiPanelButton(&Panel, "Render Color");
+                UiPanelNextRow(&Panel);
+
+                UiPanelNextRowIndent(&Panel);
+                b32 RenderVel = UiPanelButton(&Panel, "Render Vel");
+                b32 RenderTemp = UiPanelButton(&Panel, "Render Temperature");
+                UiPanelNextRow(&Panel);
+
+                b32 DiffusionEnabled = false;
+                UiPanelNextRowIndent(&Panel);
+                UiPanelText(&Panel, "Enable Diffusion:");
+                UiPanelCheckBox(&Panel, &DiffusionEnabled);
+                UiPanelNextRow(&Panel);
+
+                b32 Pressure1StrideEnabled = false;
+                UiPanelNextRowIndent(&Panel);
+                UiPanelText(&Panel, "Enable Pressure 1 Stride:");
+                UiPanelCheckBox(&Panel, &Pressure1StrideEnabled);
+                UiPanelNextRow(&Panel);
+            
+                UiPanelNextRowIndent(&Panel);
+                UiPanelText(&Panel, "Density:");
+                UiPanelHorizontalSlider(&Panel, 0.0f, 10.0f, &Inputs->Density);
+                UiPanelNumberBox(&Panel, 0.0f, 10.0f, &Inputs->Density);
+                UiPanelNextRow(&Panel);
+
+#if 0
+                u32 OldResolution = Inputs->Dim;
+                UiPanelNextRowIndent(&Panel);
+                UiPanelText(&Panel, "Resolution:");
+                UiPanelHorizontalSlider(&Panel, 0, 1024, &Inputs->Dim);
+                UiPanelNumberBox(&Panel, 0, 1024, &Inputs->Dim);
+                UiPanelNextRow(&Panel);
+#endif
+                
+                b32 ResolutionChanged = false; //OldResolution != Inputs->Dim;
+                
+                UiPanelNextRowIndent(&Panel);
+                UiPanelText(&Panel, "Gravity:");
+                UiPanelHorizontalSlider(&Panel, 0.0f, 40.0f, &Inputs->Gravity);
+                UiPanelNumberBox(&Panel, 0.0f, 40.0f, &Inputs->Gravity);
+                UiPanelNextRow(&Panel);
+            
+                UiPanelNextRowIndent(&Panel);
+                UiPanelText(&Panel, "RoomTemperature:");
+                UiPanelHorizontalSlider(&Panel, 0.0f, 200.0f, &Inputs->RoomTemperature);
+                UiPanelNumberBox(&Panel, 0.0f, 200.0f, &Inputs->RoomTemperature);
+                UiPanelNextRow(&Panel);
+            
+                UiPanelNextRowIndent(&Panel);
+                UiPanelText(&Panel, "MolarMass:");
+                UiPanelHorizontalSlider(&Panel, 0.0f, 500.0f, &Inputs->MolarMass);
+                UiPanelNumberBox(&Panel, 0.0f, 500.0f, &Inputs->MolarMass);
+                UiPanelNextRow(&Panel);
+            
+                UiPanelNextRowIndent(&Panel);
+                UiPanelText(&Panel, "R:");
+                UiPanelHorizontalSlider(&Panel, 0.0f, 40.0f, &Inputs->R);
+                UiPanelNumberBox(&Panel, 0.0f, 40.0f, &Inputs->R);
+                UiPanelNextRow(&Panel);
+            
+                UiPanelNextRowIndent(&Panel);
+                UiPanelText(&Panel, "Buoyancy:");
+                UiPanelHorizontalSlider(&Panel, 0.0f, 5.0f, &Inputs->Buoyancy);
+                UiPanelNumberBox(&Panel, 0.0f, 5.0f, &Inputs->Buoyancy);
+                UiPanelNextRow(&Panel);
+            
+                UiPanelNextRowIndent(&Panel);
+                UiPanelText(&Panel, "SplatRadius:");
+                UiPanelHorizontalSlider(&Panel, 0.0f, 1.0f, &Inputs->SplatRadius);
+                UiPanelNumberBox(&Panel, 0.0f, 1.0f, &Inputs->SplatRadius);
+                UiPanelNextRow(&Panel);
+        
+                UiPanelEnd(&Panel);
+
+                if (ResolutionChanged || ResetSim)
+                {
+                    FireResize(&DemoState->FireSim, Commands, Inputs->Dim, Inputs->Dim);
+                }
+            } break;
+        }
         
         UiStateEnd(UiState, &RenderState->DescriptorManager);
     }
@@ -229,7 +317,8 @@ DEMO_MAIN_LOOP(MainLoop)
             
             case FluidSimType_Fire:
             {
-                FireSetInputs(&DemoState->FireSim, Commands, FrameTime, CurrInput->MouseNormalizedPos, PrevInput->MouseNormalizedPos);
+                b32 MouseDown = CurrInput->MouseDown && !DemoState->UiState.MouseTouchingUi && !DemoState->UiState.ProcessedInteraction;
+                FireSetInputs(&DemoState->FireSim, Commands, FrameTime, CurrInput->MouseNormalizedPos, PrevInput->MouseNormalizedPos, MouseDown);
             } break;
             
             case FluidSimType_Water2d:

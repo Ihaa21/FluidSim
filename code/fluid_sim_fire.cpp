@@ -155,9 +155,9 @@ inline void FireResize(fire_sim* Fire, vk_commands* Commands, u32 Width, u32 Hei
 
     // NOTE: Clear all images
     {
-        FireSetInputs(Fire, Commands, 0, V2(0), V2(0));
+        FireSetInputs(Fire, Commands, Fire->Inputs.FrameTime, Fire->Inputs.MousePos, Fire->Inputs.DeltaMousePos, true);
         VkCommandsTransferFlush(Commands, RenderState->Device);
-
+        
         VkClearColorValue ClearValue = VkClearColorCreate(0, 0, 0, 0).color;
         VkClearColorValue ClearTemperatureValue = VkClearColorCreate(100, 0, 0, 0).color;
         VkImageSubresourceRange Range = {};
@@ -336,10 +336,18 @@ inline fire_sim FireInit(vk_commands* Commands, u32 Width, u32 Height)
     return Result;
 }
 
-inline void FireSetInputs(fire_sim* Fire, vk_commands* Commands, f32 FrameTime, v2 MousePos, v2 PrevMousePos)
+inline void FireSetInputs(fire_sim* Fire, vk_commands* Commands, f32 FrameTime, v2 MousePos, v2 PrevMousePos, b32 MouseDown)
 {
-    Fire->Inputs.MousePos = MousePos;
-    Fire->Inputs.DeltaMousePos = MousePos - PrevMousePos;
+    if (MouseDown)
+    {
+        Fire->Inputs.MousePos = MousePos;
+        Fire->Inputs.DeltaMousePos = MousePos - PrevMousePos;
+    }
+    else
+    {
+        Fire->Inputs.DeltaMousePos = V2(0);
+    }
+    
     Fire->Inputs.FrameTime = FrameTime;
     
     fire_inputs* GpuPtr = VkCommandsPushWriteStruct(Commands, Fire->UniformBuffer, fire_inputs,

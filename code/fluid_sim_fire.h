@@ -14,10 +14,10 @@ struct fire_inputs
     f32 RoomTemperature;
     f32 MolarMass;
     f32 R;
+    f32 Buoyancy;
     
-    v2 SplatCenter;
     f32 SplatRadius;
-    u32 Pad0;
+    v2 SplatCenter;
 };
 
 struct fire_sim
@@ -62,4 +62,4 @@ struct fire_sim
     vk_pipeline* PressureApplyPipeline;
 };
 
-inline void FireSetInputs(fire_sim* Fire, vk_commands* Commands, f32 FrameTime, v2 MousePos, v2 PrevMousePos);
+inline void FireSetInputs(fire_sim* Fire, vk_commands* Commands, f32 FrameTime, v2 MousePos, v2 PrevMousePos, b32 MouseDown);
